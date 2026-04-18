@@ -1,7 +1,31 @@
+
 {
+
   "mcpServers": {
+
     "tinyfish": {
+
+      "type": "http",
+
       "url": "https://agent.tinyfish.ai/mcp"
+
+    },
+
+    "github": {
+
+      "type": "http",
+
+      "url": "https://api.githubcopilot.com/mcp",
+
+      "headers": {
+
+        "Authorization": "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"
+
+      }
+
     }
+
   }
+
 }
+

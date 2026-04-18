@@ -1,0 +1,96 @@
+export type Platform = "doordash" | "ubereats" | "grubhub";
+
+export type ErrorChargeType =
+  | "missing_item" // customer reported item not in bag
+  | "wrong_item" // customer reported wrong item delivered
+  | "order_never_arrived" // delivery failure charged to merchant
+  | "cold_food" // quality complaint
+  | "customer_cancel" // customer cancel after prep
+  | "unknown";
+
+/**
+ * Raw charge scraped from the merchant portal BEFORE classification.
+ * Owned by: packages/scraper
+ * Consumed by: packages/classifier, apps/web
+ */
+export interface DisputeCandidate {
+  id: string; // portal's unique charge ID
+  platform: Platform;
+  orderId: string; // merchant's order reference
+  chargeType: ErrorChargeType; // best-effort from portal labels; classifier may override
+  chargeAmountCents: number; // what the platform deducted
+  itemsReported: Array<{
+    name: string;
+    quantity: number;
+    refundAmountCents: number;
+  }>;
+  customerComment?: string; // free text from customer, if provided
+  orderTimestamp: string; // ISO 8601
+  chargeTimestamp: string; // ISO 8601
+  disputeDeadline: string; // ISO 8601, 14 days after charge
+  portalUrl: string; // deep link back to the dispute in the mock portal
+  rawText: string; // full scraped text for the classifier to read
+}
+
+/**
+ * Classifier output: merit score + drafted dispute.
+ * Owned by: packages/classifier
+ * Consumed by: apps/web (display), packages/scraper (submit)
+ */
+export interface ClassifiedDispute {
+  candidateId: string;
+  shouldDispute: boolean;
+  meritScore: number; // 0–100
+  reasoning: string; // 1–3 sentences, surfaced in UI
+  resolvedChargeType: ErrorChargeType;
+  recoverableCents: number;
+  draftedDisputeText: string; // ready-to-submit dispute body
+  evidenceCitations: string[]; // e.g. ["POS record for order 4472 shows 3 items dispatched"]
+  generatedAt: string; // ISO 8601
+}
+
+/**
+ * Result of actually submitting to the portal.
+ * Owned by: packages/scraper
+ * Consumed by: apps/web, apps/voice (for escalation triggers)
+ */
+export interface SubmissionResult {
+  candidateId: string;
+  submittedAt: string;
+  status: "submitted" | "platform_rejected_at_submit" | "error";
+  platformConfirmationId?: string;
+  errorMessage?: string;
+}
+
+/**
+ * After the platform adjudicates (or we scrape back the status).
+ * Triggers voice escalation if denied.
+ */
+export interface DisputeOutcome {
+  candidateId: string;
+  outcome: "approved" | "denied" | "pending";
+  refundedCents: number; // 0 if denied or pending
+  adjudicatedAt?: string;
+  escalateToVoice: boolean; // true if denied AND meritScore >= 70
+}
+
+/**
+ * Voice escalation record. Owned by apps/voice.
+ */
+export interface VoiceCallRecord {
+  candidateId: string;
+  elevenLabsConversationId: string;
+  twilioCallSid: string;
+  startedAt: string;
+  endedAt?: string;
+  transcript?: Array<{
+    role: "agent" | "user";
+    message: string;
+    timeInCallSecs: number;
+  }>;
+  callOutcome?: "recovered" | "still_denied" | "callback_requested";
+  recoveredCents?: number;
+}
+
+export { FIXTURE_DISPUTES, DEMO_MERCHANT } from "./fixtures";
+export * from "./constants";
