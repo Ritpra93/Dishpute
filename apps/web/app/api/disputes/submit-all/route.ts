@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createMockScraper } from "@/lib/mock-scraper";
+import { createMockScraper, DEMO_APPROVED_IDS, DEMO_DENIED_IDS } from "@/lib/mock-scraper";
 import {
   getCandidate,
   listSubmittableClassifications,
@@ -10,8 +10,8 @@ import { MERIT_THRESHOLDS } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-const DENIED_IDS = new Set(["disp_0008", "disp_0017", "disp_0023"]);
-const APPROVED_IDS = new Set(["disp_0001", "disp_0004", "disp_0011"]);
+const DENIED_IDS = new Set<string>(DEMO_DENIED_IDS);
+const APPROVED_IDS = new Set<string>(DEMO_APPROVED_IDS);
 
 export async function POST() {
   const scraper = createMockScraper({ latencyMs: 0 });

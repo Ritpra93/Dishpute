@@ -30,7 +30,9 @@ Also available: `POST /run` (synchronous, no SSE), `POST /run-async` (returns `r
 
 ### Response: SSE stream of `data: {...}` events
 
-Each event has a `type` field. The terminal event has `type === "COMPLETE"` and `status === "COMPLETED"`, with extracted data in `resultJson`. On failure, `status === "FAILED"`.
+Each event has a `type` field. The terminal event has `type === "COMPLETE"` and `status === "COMPLETED"`, with extracted data in `result`. On failure, `status === "FAILED"`.
+
+**Correction (verified live 2026-04-18):** the docs say `resultJson` but the actual API returns the field as `result`. Use `result`.
 
 **Trap:** a run can have `status: COMPLETED` (browser finished) but `resultJson.status: "failure"` (goal failed). Check both.
 
@@ -41,9 +43,9 @@ Each event has a `type` field. The terminal event has `type === "COMPLETE"` and 
 type TinyFishEvent = {
   type: string;
   status?: string;
-  runId?: string;
-  streamingUrl?: string;
-  resultJson?: unknown;
+  run_id?: string;
+  streaming_url?: string;
+  result?: unknown;   // NOTE: API uses `result`, not `resultJson`
   message?: string;
 };
 
@@ -82,7 +84,7 @@ export async function runTinyFish(params: {
       if (!line.startsWith("data: ")) continue;
       const evt: TinyFishEvent = JSON.parse(line.slice(6));
       if (evt.type === "COMPLETE" && evt.status === "COMPLETED") {
-        return evt.resultJson;
+        return evt.result;
       }
       if (evt.status === "FAILED") {
         throw new Error(`TinyFish run failed: ${JSON.stringify(evt)}`);

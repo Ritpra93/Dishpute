@@ -15,7 +15,11 @@
 
 import { FIXTURE_DISPUTES } from "../lib/fixtures";
 import { createMockClassifier } from "../lib/mock-classifier";
-import { createMockScraper } from "../lib/mock-scraper";
+import {
+  createMockScraper,
+  DEMO_APPROVED_IDS,
+  DEMO_DENIED_IDS,
+} from "../lib/mock-scraper";
 import {
   resetAllTables,
   upsertCandidate,
@@ -25,9 +29,9 @@ import {
 } from "../lib/repo";
 import type { DisputeOutcome } from "../lib/types";
 
-// ─── Demo outcome distribution (must match mock-scraper.scrapeOutcomes) ────
-const DENIED_IDS = new Set(["disp_0008", "disp_0017", "disp_0023"]);
-const APPROVED_IDS = new Set(["disp_0001", "disp_0004", "disp_0011"]);
+// ─── Demo outcome distribution — source of truth in @counter/scraper ──────
+const DENIED_IDS = new Set<string>(DEMO_DENIED_IDS);
+const APPROVED_IDS = new Set<string>(DEMO_APPROVED_IDS);
 
 async function main() {
   console.log("Resetting tables…");
