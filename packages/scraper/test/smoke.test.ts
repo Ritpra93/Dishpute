@@ -35,11 +35,11 @@ describe("createMockScraper", () => {
       counts[d.chargeType] = (counts[d.chargeType] ?? 0) + 1;
     }
 
-    expect(counts["missing_item"]).toBe(15);
-    expect(counts["wrong_item"]).toBe(6);
+    expect(counts["missing_item"]).toBe(21);
+    expect(counts["wrong_item"]).toBe(3);
     expect(counts["cold_food"]).toBe(4);
-    expect(counts["order_never_arrived"]).toBe(3);
-    expect(counts["customer_cancel"]).toBe(2);
+    expect(counts["order_never_arrived"]).toBe(1);
+    expect(counts["customer_cancel"]).toBe(1);
   });
 
   it("submitDispute returns submitted status with confirmation ID", async () => {
@@ -58,29 +58,29 @@ describe("createMockScraper", () => {
   it("scrapeOutcomes returns correct outcomes for known IDs", async () => {
     const scraper = createMockScraper({ latencyMs: 0 });
     const outcomes = await scraper.scrapeOutcomes({
-      candidateIds: ["dc_001", "dc_022", "dc_023"],
+      candidateIds: ["dc-001", "dc-022", "dc-023"],
     });
 
     expect(outcomes).toHaveLength(3);
 
     const byId = Object.fromEntries(outcomes.map((o) => [o.candidateId, o]));
 
-    // dc_001 is missing_item — approved with full refund
-    expect(byId["dc_001"]?.outcome).toBe("approved");
-    expect(byId["dc_001"]?.refundedCents).toBe(1499);
+    // dc-001 is missing_item — approved with full refund
+    expect(byId["dc-001"]?.outcome).toBe("approved");
+    expect(byId["dc-001"]?.refundedCents).toBe(5200);
 
-    // dc_022 is the denied cold_food case — triggers voice escalation in the demo
-    expect(byId["dc_022"]?.outcome).toBe("denied");
-    expect(byId["dc_022"]?.refundedCents).toBe(0);
+    // dc-022 is the denied case (suspicious refund-history pattern) — triggers voice escalation in the demo
+    expect(byId["dc-022"]?.outcome).toBe("denied");
+    expect(byId["dc-022"]?.refundedCents).toBe(0);
 
-    // dc_023 is pending cold_food
-    expect(byId["dc_023"]?.outcome).toBe("pending");
-    expect(byId["dc_023"]?.refundedCents).toBe(0);
+    // dc-023 is human-review tier — still pending
+    expect(byId["dc-023"]?.outcome).toBe("pending");
+    expect(byId["dc-023"]?.refundedCents).toBe(0);
   });
 
   it("scrapeOutcomes returns all 30 fixture IDs with correct demo distribution", async () => {
     const scraper = createMockScraper({ latencyMs: 0 });
-    const allIds = Array.from({ length: 30 }, (_, i) => `dc_${String(i + 1).padStart(3, "0")}`);
+    const allIds = Array.from({ length: 30 }, (_, i) => `dc-${String(i + 1).padStart(3, "0")}`);
     const outcomes = await scraper.scrapeOutcomes({ candidateIds: allIds });
 
     expect(outcomes).toHaveLength(30);
@@ -95,12 +95,12 @@ describe("createMockScraper", () => {
     expect(counts["approved"]).toBe(22);
     expect(counts["denied"]).toBe(1);
     expect(counts["pending"]).toBe(7);
-    expect(recoveredCents).toBe(42878); // $428.78
+    expect(recoveredCents).toBe(85800); // $858.00
   });
 
   it("scrapeOutcomes falls back to pending for unknown IDs", async () => {
     const scraper = createMockScraper({ latencyMs: 0 });
-    const outcomes = await scraper.scrapeOutcomes({ candidateIds: ["dc_999"] });
+    const outcomes = await scraper.scrapeOutcomes({ candidateIds: ["dc-999"] });
 
     expect(outcomes).toHaveLength(1);
     expect(outcomes[0]?.outcome).toBe("pending");
@@ -111,7 +111,7 @@ describe("createMockScraper", () => {
     expect(DEMO_OUTCOMES_SUMMARY.totalApproved).toBe(22);
     expect(DEMO_OUTCOMES_SUMMARY.totalDenied).toBe(1);
     expect(DEMO_OUTCOMES_SUMMARY.totalPending).toBe(7);
-    expect(DEMO_OUTCOMES_SUMMARY.totalRecoveredCents).toBe(42878);
+    expect(DEMO_OUTCOMES_SUMMARY.totalRecoveredCents).toBe(85800);
   });
 });
 
@@ -140,7 +140,7 @@ describe("createScraper SCRAPER_MODE=cache", () => {
 
   it("scrapeOutcomes returns demo outcomes (not all-pending)", async () => {
     const scraper = createScraper({ tinyFishApiKey: "dummy" });
-    const allIds = Array.from({ length: 30 }, (_, i) => `dc_${String(i + 1).padStart(3, "0")}`);
+    const allIds = Array.from({ length: 30 }, (_, i) => `dc-${String(i + 1).padStart(3, "0")}`);
     const outcomes = await scraper.scrapeOutcomes({ candidateIds: allIds });
 
     const counts: Record<string, number> = { approved: 0, denied: 0, pending: 0 };

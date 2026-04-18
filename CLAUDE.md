@@ -115,6 +115,25 @@ Every version, package name, and API path below has been verified. See `docs/VER
 - **Pre-record a backup audio of the voice call** — if the live call dies, play the recording and narrate over it.
 - **Record a backup video of the full demo** — upload to Devpost before the deadline so even if everything crashes, we have a submission.
 
+## Local dev gotchas
+
+Hit these during the worker-1 + worker-2 + worker-3 merge verification — record so we don't waste time on them again:
+
+- **`pnpm install` after deleting `pnpm-lock.yaml`** triggers an interactive `Proceed? (Y/n)` prompt because the existing `node_modules` is stale relative to the (missing) lockfile. In a non-TTY shell the prompt silently hangs forever (no output, install never starts). **Fix:** pre-clean the workspace `node_modules` before reinstalling, or pipe `yes |`:
+
+  ```bash
+  rm -rf node_modules apps/*/node_modules packages/*/node_modules
+  pnpm install
+  ```
+
+- **`tsx` fails with `EPERM: operation not permitted ... .pipe`** when run inside the Cursor agent sandbox (used by `packages/classifier`'s `pnpm test` and `apps/web`'s `pnpm seed`). `tsx` opens a UNIX socket in `$TMPDIR` for its IPC server, which the sandbox blocks. **Fix:** run those commands with full permissions (outside the sandbox). For agent runs, request `required_permissions: ["all"]`.
+
+- **`pnpm-lock.yaml` corrupted to 1 byte** has shown up after merges. Delete it and reinstall (then commit the regenerated lockfile).
+
+- **Fixture IDs are `dc-NNN` (hyphen)** in `packages/types/src/fixtures.ts` and the classifier mock — *not* `dc_NNN` (underscore). The classifier's hand-tuned `MOCK_DATA` is keyed by hyphen IDs; any change to the fixture ID format must be mirrored in `packages/scraper/src/mock.ts` (`DEMO_OUTCOMES`), `packages/scraper/test/smoke.test.ts`, and `packages/scraper/__fixtures__/doordash-disputes.json`.
+
+- **`apps/web` fixtures are intentionally separate.** `apps/web/lib/fixtures.ts` uses its own `disp_NNNN` IDs by design (Option A isolation) — do not "fix" it to match `dc-NNN`.
+
 ## Read next
 
 - If you are Worker 1: `packages/scraper/CLAUDE.md`

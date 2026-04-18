@@ -7,58 +7,57 @@ function sleep(ms: number): Promise<void> {
 }
 
 // Deterministic demo outcomes keyed by fixture dispute ID.
-// Story: 22 approved (~$428 recovered), 1 denied (triggers voice escalation), 7 pending.
+// Story: 22 approved (~$858 recovered), 1 denied (triggers voice escalation), 7 pending.
 //
-// Approved: all 15 missing_item + all 6 wrong_item + dc_026 (order_never_arrived,
-//           "driver photo shows wrong address" — airtight case)
-// Denied:   dc_022 (cold_food, "completely cold and old, I want full refund" —
-//           delivery time was 52 min; platform sides with customer)
-// Pending:  dc_023–dc_025 (cold_food, gray area), dc_027–dc_028 (order_never_arrived,
-//           still processing), dc_029–dc_030 (customer_cancel, hardest to win)
+// Approved: dc-001..dc-021 (auto-submit tier, all clean wins) + dc-026
+//           (human-review missing_item with first-time-customer signal — adjudicates approved)
+// Denied:   dc-022 (auto-submit tier missing_item, but customer has 4 prior refunds in 90
+//           days — platform sides with the abuse pattern; triggers voice escalation)
+// Pending:  dc-023, dc-024, dc-025 (human-review tier, still adjudicating) +
+//           dc-027 (order_never_arrived), dc-028 (customer_cancel, hardest to win),
+//           dc-029, dc-030 (skip tier, never submitted by us so platform side never decides)
 const DEMO_OUTCOMES: Record<
   string,
   { outcome: "approved" | "denied" | "pending"; refundedCents: number }
 > = {
-  // --- approved: missing_item (dc_001–dc_015) ---
-  dc_001: { outcome: "approved", refundedCents: 1499 },
-  dc_002: { outcome: "approved", refundedCents: 899 },
-  dc_003: { outcome: "approved", refundedCents: 2199 },
-  dc_004: { outcome: "approved", refundedCents: 1299 },
-  dc_005: { outcome: "approved", refundedCents: 3499 },
-  dc_006: { outcome: "approved", refundedCents: 799 },
-  dc_007: { outcome: "approved", refundedCents: 1599 },
-  dc_008: { outcome: "approved", refundedCents: 999 },
-  dc_009: { outcome: "approved", refundedCents: 2499 },
-  dc_010: { outcome: "approved", refundedCents: 1199 },
-  dc_011: { outcome: "approved", refundedCents: 4299 },
-  dc_012: { outcome: "approved", refundedCents: 699 },
-  dc_013: { outcome: "approved", refundedCents: 1899 },
-  dc_014: { outcome: "approved", refundedCents: 1099 },
-  dc_015: { outcome: "approved", refundedCents: 2799 },
-  // --- approved: wrong_item (dc_016–dc_021) ---
-  dc_016: { outcome: "approved", refundedCents: 1599 },
-  dc_017: { outcome: "approved", refundedCents: 2299 },
-  dc_018: { outcome: "approved", refundedCents: 999 },
-  dc_019: { outcome: "approved", refundedCents: 1799 },
-  dc_020: { outcome: "approved", refundedCents: 1299 },
-  dc_021: { outcome: "approved", refundedCents: 2099 },
-  // --- denied: cold_food with suspicious "full refund" claim (triggers voice escalation) ---
-  dc_022: { outcome: "denied", refundedCents: 0 },
-  // --- pending: cold_food (gray area) ---
-  dc_023: { outcome: "pending", refundedCents: 0 },
-  dc_024: { outcome: "pending", refundedCents: 0 },
-  dc_025: { outcome: "pending", refundedCents: 0 },
-  // --- approved: order_never_arrived with GPS mismatch evidence ---
-  dc_026: { outcome: "approved", refundedCents: 5499 },
-  // --- pending: order_never_arrived (still processing) ---
-  dc_027: { outcome: "pending", refundedCents: 0 },
-  dc_028: { outcome: "pending", refundedCents: 0 },
-  // --- pending: customer_cancel (hardest to win) ---
-  dc_029: { outcome: "pending", refundedCents: 0 },
-  dc_030: { outcome: "pending", refundedCents: 0 },
+  // --- approved: auto-submit tier (dc-001..dc-021) ---
+  "dc-001": { outcome: "approved", refundedCents: 5200 },
+  "dc-002": { outcome: "approved", refundedCents: 3800 },
+  "dc-003": { outcome: "approved", refundedCents: 4400 },
+  "dc-004": { outcome: "approved", refundedCents: 2800 },
+  "dc-005": { outcome: "approved", refundedCents: 2200 },
+  "dc-006": { outcome: "approved", refundedCents: 6000 },
+  "dc-007": { outcome: "approved", refundedCents: 4200 },
+  "dc-008": { outcome: "approved", refundedCents: 3500 },
+  "dc-009": { outcome: "approved", refundedCents: 1800 },
+  "dc-010": { outcome: "approved", refundedCents: 3200 },
+  "dc-011": { outcome: "approved", refundedCents: 4800 },
+  "dc-012": { outcome: "approved", refundedCents: 2500 },
+  "dc-013": { outcome: "approved", refundedCents: 7200 },
+  "dc-014": { outcome: "approved", refundedCents: 2000 },
+  "dc-015": { outcome: "approved", refundedCents: 5000 },
+  "dc-016": { outcome: "approved", refundedCents: 4500 },
+  "dc-017": { outcome: "approved", refundedCents: 4200 },
+  "dc-018": { outcome: "approved", refundedCents: 2800 },
+  "dc-019": { outcome: "approved", refundedCents: 5000 },
+  "dc-020": { outcome: "approved", refundedCents: 3500 },
+  "dc-021": { outcome: "approved", refundedCents: 3000 },
+  // --- denied: auto-submit tier with suspicious refund-history pattern (triggers voice escalation) ---
+  "dc-022": { outcome: "denied", refundedCents: 0 },
+  // --- pending: human-review tier (still adjudicating) ---
+  "dc-023": { outcome: "pending", refundedCents: 0 },
+  "dc-024": { outcome: "pending", refundedCents: 0 },
+  "dc-025": { outcome: "pending", refundedCents: 0 },
+  // --- approved: human-review missing_item with first-time-customer signal ---
+  "dc-026": { outcome: "approved", refundedCents: 4200 },
+  // --- pending: skip tier (we never submitted, so no platform-side outcome yet) ---
+  "dc-027": { outcome: "pending", refundedCents: 0 },
+  "dc-028": { outcome: "pending", refundedCents: 0 },
+  "dc-029": { outcome: "pending", refundedCents: 0 },
+  "dc-030": { outcome: "pending", refundedCents: 0 },
 };
 
-// Total approved: $428.78 across 22 disputes.
+// Total approved: $858.00 across 22 disputes.
 export const DEMO_OUTCOMES_SUMMARY = {
   totalApproved: 22,
   totalDenied: 1,
