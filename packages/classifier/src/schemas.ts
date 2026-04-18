@@ -15,8 +15,6 @@ export const CLASSIFIED_DISPUTE_SCHEMA = {
     },
     meritScore: {
       type: 'integer',
-      minimum: 0,
-      maximum: 100,
     },
     reasoning: {
       type: 'string',
@@ -35,7 +33,6 @@ export const CLASSIFIED_DISPUTE_SCHEMA = {
     },
     recoverableCents: {
       type: 'integer',
-      minimum: 0,
     },
     draftedDisputeText: {
       type: 'string',
