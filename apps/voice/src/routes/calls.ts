@@ -1,24 +1,59 @@
-import { Router, type Request, type Response } from "express";
-import type { OutboundCallRequest, VoiceCallRecord } from "../types.js";
+import { Router } from "express";
+import { initiateOutboundCall } from "../elevenlabs";
+import type { VoiceCallRecord } from "../types";
 
-export const callsRouter = Router();
+const router = Router();
 
-callsRouter.post("/calls/outbound", (req: Request, res: Response) => {
+interface OutboundCallRequest {
+  toNumber: string;
+  candidateId: string;
+  caseNumber: string;
+  merchantName: string;
+  denialReason: string;
+}
+
+router.post("/calls/outbound", async (req, res) => {
   const body = req.body as Partial<OutboundCallRequest>;
 
-  if (!body?.candidateId || !body?.phoneNumber) {
-    return res
-      .status(400)
-      .json({ error: "candidateId and phoneNumber are required" });
+  const toNumber = body.toNumber ?? process.env["DOORDASH_SUPPORT_NUMBER"] ?? "+18005559999";
+  const candidateId = body.candidateId ?? "unknown";
+  const caseNumber = body.caseNumber ?? candidateId;
+  const merchantName = body.merchantName ?? "House of Curry";
+  const denialReason = body.denialReason ?? "No reason provided";
+
+  let result: Awaited<ReturnType<typeof initiateOutboundCall>>;
+
+  try {
+    result = await initiateOutboundCall({
+      toNumber,
+      dynamicVariables: {
+        case_number: caseNumber,
+        merchant_name: merchantName,
+        denial_reason: denialReason,
+        case_id: candidateId,
+      },
+    });
+  } catch (err) {
+    console.error("[calls/outbound] ElevenLabs error:", err);
+    res.status(502).json({
+      error: "Failed to initiate outbound call",
+      detail: err instanceof Error ? err.message : String(err),
+    });
+    return;
   }
 
-  const now = new Date().toISOString();
-  const stub: VoiceCallRecord = {
-    candidateId: body.candidateId,
-    elevenLabsConversationId: `stub_conv_${Date.now()}`,
-    twilioCallSid: `CAstub${Math.random().toString(36).slice(2, 14)}`,
-    startedAt: now,
+  const record: VoiceCallRecord = {
+    candidateId,
+    elevenLabsConversationId: result.conversation_id,
+    twilioCallSid: result.callSid,
+    startedAt: new Date().toISOString(),
   };
 
-  return res.status(200).json(stub);
+  console.log(
+    `[calls/outbound] Call started — conversationId=${result.conversation_id} callSid=${result.callSid}`
+  );
+
+  res.status(201).json(record);
 });
+
+export default router;

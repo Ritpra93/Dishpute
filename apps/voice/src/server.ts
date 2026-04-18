@@ -1,35 +1,35 @@
-import cors from "cors";
 import express from "express";
-import { callsRouter } from "./routes/calls.js";
+import cors from "cors";
+import path from "path";
+import { config } from "./config";
+import callsRouter from "./routes/calls";
+import toolsRouter from "./routes/tools";
+import webhooksRouter from "./routes/webhooks";
+import vantaRouter from "./routes/vanta";
 
-const PORT = Number(process.env.PORT ?? 4000);
+const app = express();
 
-export function createApp() {
-  const app = express();
+app.use(cors());
+app.use(express.json());
 
-  app.use(cors());
+// Serve the backup-call page + audio from apps/voice/public.
+// Available at {NGROK_URL}/backup-call.html during the demo.
+app.use(express.static(path.join(__dirname, "..", "public")));
 
-  // JSON parser mounted per-router below (NOT globally) so the ElevenLabs
-  // post-call webhook route can use express.raw() for signature verification.
-  app.use(express.json({ limit: "1mb" }));
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok", ngrokPublicUrl: config.ngrokPublicUrl || "NOT SET" });
+});
 
-  app.get("/health", (_req, res) => {
-    res.json({ ok: true, service: "@counter/voice", time: new Date().toISOString() });
-  });
+app.use(callsRouter);
+app.use(toolsRouter);
+app.use(webhooksRouter);
+app.use(vantaRouter);
 
-  app.use(callsRouter);
-
-  return app;
-}
-
-// Only start the server when invoked directly (not when imported by tests).
-const isDirectRun =
-  import.meta.url === `file://${process.argv[1]}` ||
-  process.argv[1]?.endsWith("server.ts");
-
-if (isDirectRun) {
-  const app = createApp();
-  app.listen(PORT, () => {
-    console.log(`[@counter/voice] listening on http://localhost:${PORT}`);
-  });
-}
+app.listen(config.port, () => {
+  console.log(`[voice] Express listening on port ${config.port}`);
+  if (!config.ngrokPublicUrl) {
+    console.warn("[voice] NGROK_PUBLIC_URL not set — set it in .env.local");
+  } else {
+    console.log(`[voice] Public URL: ${config.ngrokPublicUrl}`);
+  }
+});
