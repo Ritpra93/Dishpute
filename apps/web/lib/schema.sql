@@ -1,5 +1,9 @@
--- packages/types/schema.sql
--- Seeded at startup by apps/web/lib/db.ts
+-- INLINED COPY OF packages/types/schema.sql
+--
+-- MERGE NOTE: When @counter/types ships, change apps/web/lib/db.ts to read
+--   path.join(process.cwd(), "../../packages/types/schema.sql")
+-- and delete this file. The contents below are verbatim from docs/INTERFACES.md
+-- so the canonical schema and this one MUST match.
 
 CREATE TABLE IF NOT EXISTS dispute_candidates (
   id TEXT PRIMARY KEY,
@@ -7,7 +11,7 @@ CREATE TABLE IF NOT EXISTS dispute_candidates (
   order_id TEXT NOT NULL,
   charge_type TEXT NOT NULL,
   charge_amount_cents INTEGER NOT NULL,
-  items_reported_json TEXT NOT NULL,      -- JSON-encoded array
+  items_reported_json TEXT NOT NULL,
   customer_comment TEXT,
   order_timestamp TEXT NOT NULL,
   charge_timestamp TEXT NOT NULL,
@@ -19,7 +23,7 @@ CREATE TABLE IF NOT EXISTS dispute_candidates (
 
 CREATE TABLE IF NOT EXISTS classifications (
   candidate_id TEXT PRIMARY KEY REFERENCES dispute_candidates(id),
-  should_dispute INTEGER NOT NULL,        -- 0 or 1
+  should_dispute INTEGER NOT NULL,
   merit_score INTEGER NOT NULL,
   reasoning TEXT NOT NULL,
   resolved_charge_type TEXT NOT NULL,
@@ -57,6 +61,5 @@ CREATE TABLE IF NOT EXISTS voice_calls (
   PRIMARY KEY (candidate_id, eleven_labs_conversation_id)
 );
 
--- Indexes for dashboard queries
 CREATE INDEX IF NOT EXISTS idx_disputes_by_deadline ON dispute_candidates(dispute_deadline);
 CREATE INDEX IF NOT EXISTS idx_outcomes_by_escalate ON outcomes(escalate_to_voice);
