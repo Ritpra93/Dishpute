@@ -1,12 +1,5 @@
 import type { DisputeCandidate } from "./index";
 
-export const DEMO_MERCHANT = {
-  id: "merchant_hoc",
-  name: "House of Curry",
-  locations: 3,
-  city: "Minneapolis",
-} as const;
-
 // Base date: 2026-04-18. Disputes spread across last 14 days.
 // Deadline = chargeTimestamp + 14 days.
 
