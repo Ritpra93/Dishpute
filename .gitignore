@@ -42,3 +42,4 @@ counter.db
 *.pid
 *.seed
 .coverage/
+env.local
