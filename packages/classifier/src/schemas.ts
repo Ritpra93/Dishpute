@@ -42,8 +42,6 @@ export const CLASSIFIED_DISPUTE_SCHEMA = {
     evidenceCitations: {
       type: 'array',
       items: { type: 'string' },
-      minItems: 1,
-      maxItems: 5,
     },
   },
   required: [
