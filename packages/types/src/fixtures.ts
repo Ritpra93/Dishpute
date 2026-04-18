@@ -1,557 +1,442 @@
-import type { DisputeCandidate } from './index';
+/**
+ * Canonical fixture set for Counter's demo: 30 disputes for House of Curry.
+ *
+ * IDs are the disp_NNNN scheme that every downstream consumer (web dashboard,
+ * classifier mock, scraper mock, seed script) is keyed against. Never renumber.
+ *
+ * Charge-type distribution:
+ *   15 missing_item, 6 wrong_item, 4 cold_food, 3 order_never_arrived, 2 customer_cancel
+ *
+ * Total chargeAmountCents across all 30 ~= $1,242 (the Beat 2 number).
+ * The 22 high-merit candidates the classifier mock auto-submits sum to
+ * exactly $892 recoverable — see packages/classifier/src/mock.ts guardrail.
+ */
 
-export const FIXTURE_DISPUTES: DisputeCandidate[] = [
-  // ── Auto-submit tier (meritScore ≥ 70) — 22 entries, recoverableCents sum = 89200 ──
+import type { DisputeCandidate, ErrorChargeType, Platform } from "./index";
+import { DISPUTE_WINDOW_DAYS } from "./constants";
+
+const PLATFORM: Platform = "doordash";
+const NOW = new Date("2026-04-18T20:00:00-05:00");
+
+function isoDaysAgo(days: number, hours = 19, minutes = 0): string {
+  const d = new Date(NOW);
+  d.setDate(d.getDate() - days);
+  d.setHours(hours, minutes, 0, 0);
+  return d.toISOString();
+}
+
+function disputeDeadline(chargeIso: string): string {
+  const d = new Date(chargeIso);
+  d.setDate(d.getDate() + DISPUTE_WINDOW_DAYS);
+  return d.toISOString();
+}
+
+interface Seed {
+  id: string;
+  orderId: string;
+  chargeType: ErrorChargeType;
+  chargeAmountCents: number;
+  items: Array<{ name: string; quantity: number; refundAmountCents: number }>;
+  customerComment?: string;
+  daysAgo: number;
+  hour: number;
+}
+
+function seedToCandidate(s: Seed): DisputeCandidate {
+  const orderTs = isoDaysAgo(s.daysAgo, s.hour, 28);
+  const chargeTs = isoDaysAgo(s.daysAgo, s.hour + 1, 11);
+  const itemsLine = s.items
+    .map((i) => `${i.quantity}× ${i.name} ($${(i.refundAmountCents / 100).toFixed(2)})`)
+    .join(", ");
+  const rawText = [
+    `DoorDash error charge case ${s.id}`,
+    `Order ${s.orderId} placed ${orderTs}`,
+    `Charge type: ${s.chargeType}`,
+    `Items reported: ${itemsLine}`,
+    s.customerComment ? `Customer note: "${s.customerComment}"` : "Customer note: (none)",
+    `Auto-charged $${(s.chargeAmountCents / 100).toFixed(2)} on ${chargeTs}.`,
+  ].join("\n");
+
+  const candidate: DisputeCandidate = {
+    id: s.id,
+    platform: PLATFORM,
+    orderId: s.orderId,
+    chargeType: s.chargeType,
+    chargeAmountCents: s.chargeAmountCents,
+    itemsReported: s.items,
+    orderTimestamp: orderTs,
+    chargeTimestamp: chargeTs,
+    disputeDeadline: disputeDeadline(chargeTs),
+    portalUrl: `/mock-portal/disputes/${s.id}`,
+    rawText,
+  };
+  if (s.customerComment !== undefined) candidate.customerComment = s.customerComment;
+  return candidate;
+}
+
+const SEEDS: Seed[] = [
+  // ─── 15 missing_item ─────────────────────────────────────────────────────
   {
-    id: 'dc-001',
-    platform: 'doordash',
-    orderId: 'DD-128473',
-    chargeType: 'missing_item',
-    chargeAmountCents: 5200,
-    itemsReported: [
-      { name: 'Masala Dosa', quantity: 2, refundAmountCents: 2800 },
-      { name: 'Sambar Vada', quantity: 2, refundAmountCents: 2400 },
+    id: "disp_0001",
+    orderId: "ord_4472",
+    chargeType: "missing_item",
+    chargeAmountCents: 4780,
+    items: [
+      { name: "Masala Dosa", quantity: 2, refundAmountCents: 2800 },
+      { name: "Mango Lassi", quantity: 1, refundAmountCents: 500 },
     ],
-    customerComment: 'I only got 1 dosa and no sambar vada at all',
-    orderTimestamp: '2026-04-04T23:42:00.000Z',
-    chargeTimestamp: '2026-04-06T09:15:00.000Z',
-    disputeDeadline: '2026-04-20T09:15:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-001',
-    rawText:
-      'Error Charge #EC-001 | Missing Item | Order #DD-128473 | Charged: $52.00 | Customer: "I only got 1 dosa and no sambar vada at all" | Items disputed: Masala Dosa (2×$14.00), Sambar Vada (2×$12.00) | Order placed: Apr 04 6:42 PM CDT | Delivered: Apr 04 7:18 PM CDT | Charge applied: Apr 06',
+    customerComment: "Got 1 dosa not 2. Lassi was missing.",
+    daysAgo: 3,
+    hour: 19,
   },
   {
-    id: 'dc-002',
-    platform: 'doordash',
-    orderId: 'DD-234891',
-    chargeType: 'missing_item',
-    chargeAmountCents: 3800,
-    itemsReported: [
-      { name: 'Butter Chicken', quantity: 1, refundAmountCents: 1800 },
-      { name: 'Garlic Naan', quantity: 2, refundAmountCents: 1000 },
-      { name: 'Raita', quantity: 2, refundAmountCents: 1000 },
-    ],
-    customerComment: 'Missing garlic naan',
-    orderTimestamp: '2026-04-05T00:12:00.000Z',
-    chargeTimestamp: '2026-04-07T10:20:00.000Z',
-    disputeDeadline: '2026-04-21T10:20:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-002',
-    rawText:
-      'Error Charge #EC-002 | Missing Item | Order #DD-234891 | Charged: $38.00 | Customer: "Missing garlic naan" | Items disputed: Garlic Naan (2×$5.00) | Order placed: Apr 04 7:12 PM CDT | Delivered: Apr 04 7:48 PM CDT | Charge applied: Apr 07 | Customer refund history: 3 claims last 60 days',
+    id: "disp_0002",
+    orderId: "ord_4488",
+    chargeType: "missing_item",
+    chargeAmountCents: 1820,
+    items: [{ name: "Medu Vada (4 pcs)", quantity: 1, refundAmountCents: 900 }],
+    customerComment: "Vada wasn't in the bag.",
+    daysAgo: 4,
+    hour: 18,
   },
   {
-    id: 'dc-003',
-    platform: 'doordash',
-    orderId: 'DD-341027',
-    chargeType: 'missing_item',
-    chargeAmountCents: 4400,
-    itemsReported: [
-      { name: 'Chicken Biryani', quantity: 2, refundAmountCents: 4400 },
+    id: "disp_0003",
+    orderId: "ord_4501",
+    chargeType: "missing_item",
+    chargeAmountCents: 2950,
+    items: [
+      { name: "Idli Sambar", quantity: 1, refundAmountCents: 1100 },
+      { name: "Garlic Naan", quantity: 2, refundAmountCents: 1000 },
     ],
-    customerComment: 'Both biryanis were missing from my order',
-    orderTimestamp: '2026-04-05T01:02:00.000Z',
-    chargeTimestamp: '2026-04-07T11:00:00.000Z',
-    disputeDeadline: '2026-04-21T11:00:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-003',
-    rawText:
-      'Error Charge #EC-003 | Missing Item | Order #DD-341027 | Charged: $44.00 | Customer: "Both biryanis were missing from my order" | Items disputed: Chicken Biryani (2×$22.00) | Order placed: Apr 04 8:02 PM CDT | Delivered: Apr 04 8:41 PM CDT | Charge applied: Apr 07',
+    daysAgo: 5,
+    hour: 20,
   },
   {
-    id: 'dc-004',
-    platform: 'doordash',
-    orderId: 'DD-412856',
-    chargeType: 'wrong_item',
-    chargeAmountCents: 2800,
-    itemsReported: [
-      { name: 'Uttapam', quantity: 1, refundAmountCents: 1300 },
-      { name: 'Medu Vada', quantity: 1, refundAmountCents: 1000 },
-      { name: 'Filter Coffee', quantity: 1, refundAmountCents: 500 },
+    id: "disp_0004",
+    orderId: "ord_4517",
+    chargeType: "missing_item",
+    chargeAmountCents: 5680,
+    items: [
+      { name: "Chicken Biryani", quantity: 1, refundAmountCents: 1800 },
+      { name: "Paneer Butter Masala", quantity: 1, refundAmountCents: 1600 },
+      { name: "Butter Naan", quantity: 2, refundAmountCents: 1000 },
     ],
-    customerComment: 'I got masala dosa instead of uttapam',
-    orderTimestamp: '2026-04-06T00:18:00.000Z',
-    chargeTimestamp: '2026-04-08T08:45:00.000Z',
-    disputeDeadline: '2026-04-22T08:45:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-004',
-    rawText:
-      'Error Charge #EC-004 | Wrong Item | Order #DD-412856 | Charged: $28.00 | Customer: "I got masala dosa instead of uttapam" | Items disputed: Uttapam (1×$13.00) | Order placed: Apr 05 7:18 PM CDT | Delivered: Apr 05 7:52 PM CDT | Charge applied: Apr 08',
+    customerComment: "Half my order missing — biryani and paneer not delivered.",
+    daysAgo: 6,
+    hour: 19,
   },
   {
-    id: 'dc-005',
-    platform: 'doordash',
-    orderId: 'DD-589234',
-    chargeType: 'missing_item',
-    chargeAmountCents: 2200,
-    itemsReported: [
-      { name: 'Idli Sambar', quantity: 2, refundAmountCents: 2200 },
-    ],
-    orderTimestamp: '2026-04-06T23:15:00.000Z',
-    chargeTimestamp: '2026-04-08T09:30:00.000Z',
-    disputeDeadline: '2026-04-22T09:30:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-005',
-    rawText:
-      'Error Charge #EC-005 | Missing Item | Order #DD-589234 | Charged: $22.00 | Customer: [no comment] | Items disputed: Idli Sambar (2×$11.00) | Order placed: Apr 06 6:15 PM CDT | Delivered: Apr 06 6:44 PM CDT | Charge applied: Apr 08',
+    id: "disp_0005",
+    orderId: "ord_4525",
+    chargeType: "missing_item",
+    chargeAmountCents: 1290,
+    items: [{ name: "Gulab Jamun (2 pcs)", quantity: 1, refundAmountCents: 600 }],
+    daysAgo: 7,
+    hour: 21,
   },
   {
-    id: 'dc-006',
-    platform: 'doordash',
-    orderId: 'DD-672109',
-    chargeType: 'missing_item',
-    chargeAmountCents: 6000,
-    itemsReported: [
-      { name: 'Tandoori Chicken Half', quantity: 1, refundAmountCents: 2100 },
-      { name: 'Lamb Rogan Josh', quantity: 1, refundAmountCents: 2400 },
-      { name: 'Garlic Naan', quantity: 2, refundAmountCents: 1000 },
-      { name: 'Raita', quantity: 1, refundAmountCents: 500 },
+    id: "disp_0006",
+    orderId: "ord_4539",
+    chargeType: "missing_item",
+    chargeAmountCents: 4250,
+    items: [
+      { name: "Hyderabadi Biryani", quantity: 1, refundAmountCents: 1900 },
+      { name: "Mango Lassi", quantity: 2, refundAmountCents: 1000 },
     ],
-    customerComment: "some items were missing but I can't remember which",
-    orderTimestamp: '2026-04-07T00:38:00.000Z',
-    chargeTimestamp: '2026-04-09T10:10:00.000Z',
-    disputeDeadline: '2026-04-23T10:10:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-006',
-    rawText:
-      'Error Charge #EC-006 | Missing Item | Order #DD-672109 | Charged: $60.00 | Customer: "some items were missing but I can\'t remember which" | Items disputed: Tandoori Chicken Half (1×$21.00), Lamb Rogan Josh (1×$24.00), Garlic Naan (2×$5.00), Raita (1×$5.00) | Order placed: Apr 06 7:38 PM CDT | Delivered: Apr 06 8:12 PM CDT | Charge applied: Apr 09',
+    customerComment: "Whole biryani missing.",
+    daysAgo: 8,
+    hour: 20,
   },
   {
-    id: 'dc-007',
-    platform: 'doordash',
-    orderId: 'DD-743820',
-    chargeType: 'missing_item',
-    chargeAmountCents: 4200,
-    itemsReported: [
-      { name: 'Palak Paneer', quantity: 1, refundAmountCents: 1600 },
-      { name: 'Dal Makhani', quantity: 1, refundAmountCents: 1400 },
-      { name: 'Naan', quantity: 3, refundAmountCents: 1200 },
-    ],
-    customerComment: 'The dal makhani was not in the bag',
-    orderTimestamp: '2026-04-07T01:07:00.000Z',
-    chargeTimestamp: '2026-04-09T11:15:00.000Z',
-    disputeDeadline: '2026-04-23T11:15:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-007',
-    rawText:
-      'Error Charge #EC-007 | Missing Item | Order #DD-743820 | Charged: $42.00 | Customer: "The dal makhani was not in the bag" | Items disputed: Dal Makhani (1×$14.00) | Order placed: Apr 06 8:07 PM CDT | Delivered: Apr 06 8:43 PM CDT | Charge applied: Apr 09',
+    id: "disp_0007",
+    orderId: "ord_4548",
+    chargeType: "missing_item",
+    chargeAmountCents: 2110,
+    items: [{ name: "Plain Dosa", quantity: 1, refundAmountCents: 1100 }],
+    daysAgo: 9,
+    hour: 12,
   },
   {
-    id: 'dc-008',
-    platform: 'doordash',
-    orderId: 'DD-854437',
-    chargeType: 'missing_item',
-    chargeAmountCents: 3500,
-    itemsReported: [
-      { name: 'Chole Bhature', quantity: 1, refundAmountCents: 1500 },
-      { name: 'Mango Lassi', quantity: 2, refundAmountCents: 1200 },
-      { name: 'Gulab Jamun', quantity: 1, refundAmountCents: 800 },
+    id: "disp_0008",
+    orderId: "ord_4561",
+    chargeType: "missing_item",
+    chargeAmountCents: 3470,
+    items: [
+      { name: "Mysore Masala Dosa", quantity: 1, refundAmountCents: 1600 },
+      { name: "Masala Chai", quantity: 2, refundAmountCents: 800 },
     ],
-    orderTimestamp: '2026-04-08T00:58:00.000Z',
-    chargeTimestamp: '2026-04-10T09:00:00.000Z',
-    disputeDeadline: '2026-04-24T09:00:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-008',
-    rawText:
-      'Error Charge #EC-008 | Missing Item | Order #DD-854437 | Charged: $35.00 | Customer: [no comment] | Items disputed: Chole Bhature (1×$15.00), Mango Lassi (2×$6.00), Gulab Jamun (1×$8.00) | Order placed: Apr 07 7:58 PM CDT | Delivered: Apr 07 8:34 PM CDT | Charge applied: Apr 10',
+    customerComment: "Drinks missing again, third time this month.",
+    daysAgo: 10,
+    hour: 18,
   },
   {
-    id: 'dc-009',
-    platform: 'doordash',
-    orderId: 'DD-921643',
-    chargeType: 'wrong_item',
-    chargeAmountCents: 1800,
-    itemsReported: [
-      { name: 'Uttapam', quantity: 1, refundAmountCents: 1300 },
-      { name: 'Filter Coffee', quantity: 1, refundAmountCents: 500 },
-    ],
-    customerComment: 'I got something completely different from what I ordered',
-    orderTimestamp: '2026-04-09T22:55:00.000Z',
-    chargeTimestamp: '2026-04-11T10:30:00.000Z',
-    disputeDeadline: '2026-04-25T10:30:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-009',
-    rawText:
-      'Error Charge #EC-009 | Wrong Item | Order #DD-921643 | Charged: $18.00 | Customer: "I got something completely different from what I ordered" | Items disputed: Uttapam (1×$13.00), Filter Coffee (1×$5.00) | Order placed: Apr 09 5:55 PM CDT | Delivered: Apr 09 6:22 PM CDT | Charge applied: Apr 11',
+    id: "disp_0009",
+    orderId: "ord_4577",
+    chargeType: "missing_item",
+    chargeAmountCents: 1640,
+    items: [{ name: "Idli (3 pcs)", quantity: 1, refundAmountCents: 900 }],
+    daysAgo: 11,
+    hour: 11,
   },
   {
-    id: 'dc-010',
-    platform: 'doordash',
-    orderId: 'DD-013752',
-    chargeType: 'missing_item',
-    chargeAmountCents: 3200,
-    itemsReported: [
-      { name: 'Chole Bhature', quantity: 1, refundAmountCents: 1500 },
-      { name: 'Aloo Paratha', quantity: 1, refundAmountCents: 1200 },
-      { name: 'Raita', quantity: 1, refundAmountCents: 500 },
+    id: "disp_0010",
+    orderId: "ord_4589",
+    chargeType: "missing_item",
+    chargeAmountCents: 2840,
+    items: [
+      { name: "Onion Uttapam", quantity: 1, refundAmountCents: 1400 },
+      { name: "Mango Lassi", quantity: 1, refundAmountCents: 500 },
     ],
-    customerComment: 'I think one thing was missing',
-    orderTimestamp: '2026-04-09T00:24:00.000Z',
-    chargeTimestamp: '2026-04-11T11:00:00.000Z',
-    disputeDeadline: '2026-04-25T11:00:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-010',
-    rawText:
-      'Error Charge #EC-010 | Missing Item | Order #DD-013752 | Charged: $32.00 | Customer: "I think one thing was missing" | Items disputed: Aloo Paratha (1×$12.00) | Order placed: Apr 08 7:24 PM CDT | Delivered: Apr 08 7:59 PM CDT | Charge applied: Apr 11',
+    daysAgo: 12,
+    hour: 13,
   },
   {
-    id: 'dc-011',
-    platform: 'doordash',
-    orderId: 'DD-104928',
-    chargeType: 'missing_item',
-    chargeAmountCents: 4800,
-    itemsReported: [
-      { name: 'Lamb Rogan Josh', quantity: 2, refundAmountCents: 4800 },
+    id: "disp_0011",
+    orderId: "ord_4603",
+    chargeType: "missing_item",
+    chargeAmountCents: 7820,
+    items: [
+      { name: "Chicken Biryani", quantity: 2, refundAmountCents: 3600 },
+      { name: "Dal Makhani", quantity: 1, refundAmountCents: 1400 },
     ],
-    customerComment: 'Order was missing items as usual',
-    orderTimestamp: '2026-04-10T01:18:00.000Z',
-    chargeTimestamp: '2026-04-12T09:45:00.000Z',
-    disputeDeadline: '2026-04-26T09:45:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-011',
-    rawText:
-      'Error Charge #EC-011 | Missing Item | Order #DD-104928 | Charged: $48.00 | Customer: "Order was missing items as usual" | Items disputed: Lamb Rogan Josh (2×$24.00) | Order placed: Apr 09 8:18 PM CDT | Delivered: Apr 09 9:01 PM CDT | Charge applied: Apr 12 | Customer refund history: 5 claims last 120 days',
+    customerComment: "Order was incomplete, missing biryanis and dal.",
+    daysAgo: 12,
+    hour: 19,
   },
   {
-    id: 'dc-012',
-    platform: 'doordash',
-    orderId: 'DD-218034',
-    chargeType: 'cold_food',
-    chargeAmountCents: 2500,
-    itemsReported: [
-      { name: 'Aloo Paratha', quantity: 1, refundAmountCents: 1200 },
-      { name: 'Raita', quantity: 1, refundAmountCents: 500 },
-      { name: 'Gulab Jamun', quantity: 1, refundAmountCents: 800 },
-    ],
-    customerComment: 'Food was stone cold',
-    orderTimestamp: '2026-04-10T02:07:00.000Z',
-    chargeTimestamp: '2026-04-12T10:30:00.000Z',
-    disputeDeadline: '2026-04-26T10:30:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-012',
-    rawText:
-      'Error Charge #EC-012 | Cold Food | Order #DD-218034 | Charged: $25.00 | Customer: "Food was stone cold" | Order placed: Apr 09 9:07 PM CDT | Delivered: Apr 09 9:26 PM CDT (19 min) | Charge applied: Apr 12',
+    id: "disp_0012",
+    orderId: "ord_4612",
+    chargeType: "missing_item",
+    chargeAmountCents: 980,
+    items: [{ name: "Garlic Naan", quantity: 2, refundAmountCents: 1000 }],
+    daysAgo: 1,
+    hour: 18,
   },
   {
-    id: 'dc-013',
-    platform: 'doordash',
-    orderId: 'DD-326741',
-    chargeType: 'missing_item',
-    chargeAmountCents: 7200,
-    itemsReported: [
-      { name: 'Fish Curry', quantity: 2, refundAmountCents: 4600 },
-      { name: 'Mutton Curry', quantity: 1, refundAmountCents: 2600 },
+    id: "disp_0013",
+    orderId: "ord_4624",
+    chargeType: "missing_item",
+    chargeAmountCents: 3120,
+    items: [
+      { name: "Paneer Tikka", quantity: 1, refundAmountCents: 1700 },
+      { name: "Garlic Naan", quantity: 2, refundAmountCents: 1000 },
     ],
-    customerComment: 'Missing items in my order',
-    orderTimestamp: '2026-04-11T00:51:00.000Z',
-    chargeTimestamp: '2026-04-13T09:00:00.000Z',
-    disputeDeadline: '2026-04-27T09:00:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-013',
-    rawText:
-      'Error Charge #EC-013 | Missing Item | Order #DD-326741 | Charged: $72.00 | Customer: "Missing items in my order" | Items disputed: Fish Curry (2×$23.00), Mutton Curry (1×$26.00) | Order placed: Apr 10 7:51 PM CDT | Delivered: Apr 10 8:28 PM CDT | Charge applied: Apr 13',
+    customerComment: "Paneer tikka not in bag.",
+    daysAgo: 2,
+    hour: 19,
   },
   {
-    id: 'dc-014',
-    platform: 'doordash',
-    orderId: 'DD-431856',
-    chargeType: 'missing_item',
-    chargeAmountCents: 2000,
-    itemsReported: [
-      { name: 'Medu Vada', quantity: 2, refundAmountCents: 2000 },
-    ],
-    customerComment: 'Not everything was there',
-    orderTimestamp: '2026-04-11T23:31:00.000Z',
-    chargeTimestamp: '2026-04-13T10:00:00.000Z',
-    disputeDeadline: '2026-04-27T10:00:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-014',
-    rawText:
-      'Error Charge #EC-014 | Missing Item | Order #DD-431856 | Charged: $20.00 | Customer: "Not everything was there" | Items disputed: Medu Vada (2×$10.00) | Order placed: Apr 11 6:31 PM CDT | Delivered: Apr 11 7:04 PM CDT | Charge applied: Apr 13',
+    id: "disp_0014",
+    orderId: "ord_4638",
+    chargeType: "missing_item",
+    chargeAmountCents: 2270,
+    items: [{ name: "Gobi Manchurian", quantity: 1, refundAmountCents: 1400 }],
+    daysAgo: 13,
+    hour: 18,
   },
   {
-    id: 'dc-015',
-    platform: 'doordash',
-    orderId: 'DD-548293',
-    chargeType: 'missing_item',
-    chargeAmountCents: 5000,
-    itemsReported: [
-      { name: 'Chicken 65', quantity: 1, refundAmountCents: 1700 },
-      { name: 'Chicken Biryani', quantity: 1, refundAmountCents: 2200 },
-      { name: 'Mango Lassi', quantity: 1, refundAmountCents: 600 },
-      { name: 'Filter Coffee', quantity: 1, refundAmountCents: 500 },
+    id: "disp_0015",
+    orderId: "ord_4655",
+    chargeType: "missing_item",
+    chargeAmountCents: 3510,
+    items: [
+      { name: "Veg Biryani", quantity: 1, refundAmountCents: 1500 },
+      { name: "Kheer", quantity: 1, refundAmountCents: 700 },
     ],
-    orderTimestamp: '2026-04-12T00:43:00.000Z',
-    chargeTimestamp: '2026-04-14T09:20:00.000Z',
-    disputeDeadline: '2026-04-28T09:20:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-015',
-    rawText:
-      'Error Charge #EC-015 | Missing Item | Order #DD-548293 | Charged: $50.00 | Customer: [no comment] | Items disputed: Chicken 65 (1×$17.00), Chicken Biryani (1×$22.00), Mango Lassi (1×$6.00), Filter Coffee (1×$5.00) | Order placed: Apr 11 7:43 PM CDT | Delivered: Apr 11 8:19 PM CDT | Charge applied: Apr 14',
-  },
-  {
-    id: 'dc-016',
-    platform: 'doordash',
-    orderId: 'DD-629475',
-    chargeType: 'missing_item',
-    chargeAmountCents: 4500,
-    itemsReported: [
-      { name: 'Butter Chicken', quantity: 1, refundAmountCents: 1800 },
-      { name: 'Rava Idli', quantity: 2, refundAmountCents: 2200 },
-      { name: 'Raita', quantity: 1, refundAmountCents: 500 },
-    ],
-    customerComment: 'The bag felt light, something was missing',
-    orderTimestamp: '2026-04-12T23:52:00.000Z',
-    chargeTimestamp: '2026-04-14T10:15:00.000Z',
-    disputeDeadline: '2026-04-28T10:15:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-016',
-    rawText:
-      'Error Charge #EC-016 | Missing Item | Order #DD-629475 | Charged: $45.00 | Customer: "The bag felt light, something was missing" | Items disputed: Butter Chicken (1×$18.00), Rava Idli (2×$11.00), Raita (1×$5.00) | Order placed: Apr 12 6:52 PM CDT | Delivered: Apr 12 7:31 PM CDT | Charge applied: Apr 14',
-  },
-  {
-    id: 'dc-017',
-    platform: 'doordash',
-    orderId: 'DD-734820',
-    chargeType: 'missing_item',
-    chargeAmountCents: 4200,
-    itemsReported: [
-      { name: 'Chicken Tikka Masala', quantity: 1, refundAmountCents: 2000 },
-      { name: 'Garlic Naan', quantity: 2, refundAmountCents: 1000 },
-      { name: 'Mango Lassi', quantity: 2, refundAmountCents: 1200 },
-    ],
-    customerComment: 'The naan was missing from my bag',
-    orderTimestamp: '2026-04-13T01:26:00.000Z',
-    chargeTimestamp: '2026-04-15T09:30:00.000Z',
-    disputeDeadline: '2026-04-29T09:30:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-017',
-    rawText:
-      'Error Charge #EC-017 | Missing Item | Order #DD-734820 | Charged: $42.00 | Customer: "The naan was missing from my bag" | Items disputed: Garlic Naan (2×$5.00) | Order placed: Apr 12 8:26 PM CDT | Delivered: Apr 12 9:02 PM CDT | Charge applied: Apr 15',
-  },
-  {
-    id: 'dc-018',
-    platform: 'doordash',
-    orderId: 'DD-821639',
-    chargeType: 'missing_item',
-    chargeAmountCents: 2800,
-    itemsReported: [
-      { name: 'Masala Dosa', quantity: 2, refundAmountCents: 2800 },
-    ],
-    customerComment: 'One of my dosas was missing',
-    orderTimestamp: '2026-04-13T00:14:00.000Z',
-    chargeTimestamp: '2026-04-15T10:00:00.000Z',
-    disputeDeadline: '2026-04-29T10:00:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-018',
-    rawText:
-      'Error Charge #EC-018 | Missing Item | Order #DD-821639 | Charged: $28.00 | Customer: "One of my dosas was missing" | Items disputed: Masala Dosa (1×$14.00) | Order placed: Apr 12 7:14 PM CDT | Delivered: Apr 12 7:49 PM CDT | Charge applied: Apr 15',
-  },
-  {
-    id: 'dc-019',
-    platform: 'doordash',
-    orderId: 'DD-934027',
-    chargeType: 'missing_item',
-    chargeAmountCents: 5000,
-    itemsReported: [
-      { name: 'Paneer Tikka', quantity: 1, refundAmountCents: 1800 },
-      { name: 'Lamb Rogan Josh', quantity: 1, refundAmountCents: 2400 },
-      { name: 'Naan', quantity: 2, refundAmountCents: 800 },
-    ],
-    customerComment: 'Items were missing from my order',
-    orderTimestamp: '2026-04-14T00:56:00.000Z',
-    chargeTimestamp: '2026-04-16T09:15:00.000Z',
-    disputeDeadline: '2026-04-30T09:15:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-019',
-    rawText:
-      'Error Charge #EC-019 | Missing Item | Order #DD-934027 | Charged: $50.00 | Customer: "Items were missing from my order" | Items disputed: Paneer Tikka (1×$18.00), Lamb Rogan Josh (1×$24.00), Naan (2×$4.00) | Order placed: Apr 13 7:56 PM CDT | Delivered: Apr 13 8:29 PM CDT | Charge applied: Apr 16 | First-time customer',
-  },
-  {
-    id: 'dc-020',
-    platform: 'doordash',
-    orderId: 'DD-048312',
-    chargeType: 'cold_food',
-    chargeAmountCents: 3500,
-    itemsReported: [
-      { name: 'Chicken 65', quantity: 1, refundAmountCents: 1700 },
-      { name: 'Uttapam', quantity: 1, refundAmountCents: 1300 },
-      { name: 'Filter Coffee', quantity: 1, refundAmountCents: 500 },
-    ],
-    customerComment: 'Everything was cold by the time it arrived',
-    orderTimestamp: '2026-04-14T23:58:00.000Z',
-    chargeTimestamp: '2026-04-16T10:00:00.000Z',
-    disputeDeadline: '2026-04-30T10:00:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-020',
-    rawText:
-      'Error Charge #EC-020 | Cold Food | Order #DD-048312 | Charged: $35.00 | Customer: "Everything was cold by the time it arrived" | Order placed: Apr 14 6:58 PM CDT | Delivered: Apr 14 7:22 PM CDT (24 min) | Charge applied: Apr 16',
-  },
-  {
-    id: 'dc-021',
-    platform: 'doordash',
-    orderId: 'DD-156483',
-    chargeType: 'missing_item',
-    chargeAmountCents: 3000,
-    itemsReported: [
-      { name: 'Sambar Vada', quantity: 2, refundAmountCents: 2400 },
-      { name: 'Mango Lassi', quantity: 1, refundAmountCents: 600 },
-    ],
-    customerComment: 'Something was missing',
-    orderTimestamp: '2026-04-15T23:37:00.000Z',
-    chargeTimestamp: '2026-04-17T09:00:00.000Z',
-    disputeDeadline: '2026-05-01T09:00:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-021',
-    rawText:
-      'Error Charge #EC-021 | Missing Item | Order #DD-156483 | Charged: $30.00 | Customer: "Something was missing" | Items disputed: Sambar Vada (2×$12.00), Mango Lassi (1×$6.00) | Order placed: Apr 15 6:37 PM CDT | Delivered: Apr 15 7:04 PM CDT | Charge applied: Apr 17',
-  },
-  {
-    id: 'dc-022',
-    platform: 'doordash',
-    orderId: 'DD-271940',
-    chargeType: 'missing_item',
-    chargeAmountCents: 7600,
-    itemsReported: [
-      { name: 'Mutton Curry', quantity: 2, refundAmountCents: 5200 },
-      { name: 'Paneer Tikka', quantity: 1, refundAmountCents: 1800 },
-      { name: 'Mango Lassi', quantity: 1, refundAmountCents: 600 },
-    ],
-    customerComment: 'Half the order was missing again',
-    orderTimestamp: '2026-04-15T01:41:00.000Z',
-    chargeTimestamp: '2026-04-17T10:30:00.000Z',
-    disputeDeadline: '2026-05-01T10:30:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-022',
-    rawText:
-      'Error Charge #EC-022 | Missing Item | Order #DD-271940 | Charged: $76.00 | Customer: "Half the order was missing again" | Items disputed: Mutton Curry (2×$26.00), Paneer Tikka (1×$18.00), Mango Lassi (1×$6.00) | Order placed: Apr 14 8:41 PM CDT | Delivered: Apr 14 9:18 PM CDT | Charge applied: Apr 17 | Customer refund history: 4 claims last 90 days',
+    daysAgo: 13,
+    hour: 12,
   },
 
-  // ── Human-review tier (meritScore 40–69) — 4 entries ──
+  // ─── 6 wrong_item ────────────────────────────────────────────────────────
   {
-    id: 'dc-023',
-    platform: 'doordash',
-    orderId: 'DD-382754',
-    chargeType: 'missing_item',
-    chargeAmountCents: 3500,
-    itemsReported: [
-      { name: 'Butter Chicken', quantity: 1, refundAmountCents: 1800 },
-      { name: 'Garlic Naan', quantity: 1, refundAmountCents: 500 },
-      { name: 'Mango Lassi', quantity: 2, refundAmountCents: 1200 },
-    ],
-    customerComment: 'The naan was not in the bag when I opened it',
-    orderTimestamp: '2026-04-15T00:17:00.000Z',
-    chargeTimestamp: '2026-04-17T09:30:00.000Z',
-    disputeDeadline: '2026-05-01T09:30:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-023',
-    rawText:
-      'Error Charge #EC-023 | Missing Item | Order #DD-382754 | Charged: $35.00 | Customer: "The naan was not in the bag when I opened it" | Items disputed: Garlic Naan (1×$5.00) | Order placed: Apr 14 7:17 PM CDT | Delivered: Apr 14 7:54 PM CDT | Charge applied: Apr 17',
+    id: "disp_0016",
+    orderId: "ord_4663",
+    chargeType: "wrong_item",
+    chargeAmountCents: 3680,
+    items: [{ name: "Mysore Masala Dosa", quantity: 1, refundAmountCents: 1600 }],
+    customerComment: "Got plain dosa instead of mysore masala.",
+    daysAgo: 4,
+    hour: 13,
   },
   {
-    id: 'dc-024',
-    platform: 'doordash',
-    orderId: 'DD-493827',
-    chargeType: 'cold_food',
-    chargeAmountCents: 2800,
-    itemsReported: [
-      { name: 'Chicken Tikka Masala', quantity: 1, refundAmountCents: 2000 },
-      { name: 'Naan', quantity: 2, refundAmountCents: 800 },
+    id: "disp_0017",
+    orderId: "ord_4671",
+    chargeType: "wrong_item",
+    chargeAmountCents: 4920,
+    items: [
+      { name: "Chicken Biryani", quantity: 1, refundAmountCents: 1800 },
+      { name: "Paneer Butter Masala", quantity: 1, refundAmountCents: 1600 },
     ],
-    customerComment: 'Food was completely cold, very disappointed',
-    orderTimestamp: '2026-04-16T00:02:00.000Z',
-    chargeTimestamp: '2026-04-17T10:00:00.000Z',
-    disputeDeadline: '2026-05-01T10:00:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-024',
-    rawText:
-      'Error Charge #EC-024 | Cold Food | Order #DD-493827 | Charged: $28.00 | Customer: "Food was completely cold, very disappointed" | Order placed: Apr 15 7:02 PM CDT | Delivered: Apr 15 7:33 PM CDT (31 min) | Charge applied: Apr 17',
+    customerComment: "Sent veg biryani instead of chicken.",
+    daysAgo: 6,
+    hour: 20,
   },
   {
-    id: 'dc-025',
-    platform: 'doordash',
-    orderId: 'DD-574923',
-    chargeType: 'wrong_item',
-    chargeAmountCents: 1800,
-    itemsReported: [
-      { name: 'Paneer Tikka', quantity: 1, refundAmountCents: 1800 },
-    ],
-    customerComment: 'I ordered butter chicken but received paneer tikka',
-    orderTimestamp: '2026-04-16T01:11:00.000Z',
-    chargeTimestamp: '2026-04-18T08:00:00.000Z',
-    disputeDeadline: '2026-05-02T08:00:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-025',
-    rawText:
-      'Error Charge #EC-025 | Wrong Item | Order #DD-574923 | Charged: $18.00 | Customer: "I ordered butter chicken but received paneer tikka" | Items disputed: Paneer Tikka (1×$18.00) | Order placed: Apr 15 8:11 PM CDT | Delivered: Apr 15 8:43 PM CDT | Charge applied: Apr 18',
+    id: "disp_0018",
+    orderId: "ord_4684",
+    chargeType: "wrong_item",
+    chargeAmountCents: 1730,
+    items: [{ name: "Onion Uttapam", quantity: 1, refundAmountCents: 1400 }],
+    daysAgo: 8,
+    hour: 18,
   },
   {
-    id: 'dc-026',
-    platform: 'doordash',
-    orderId: 'DD-682047',
-    chargeType: 'missing_item',
-    chargeAmountCents: 4200,
-    itemsReported: [
-      { name: 'Chicken Biryani', quantity: 1, refundAmountCents: 2200 },
-      { name: 'Chole Bhature', quantity: 1, refundAmountCents: 1500 },
-      { name: 'Raita', quantity: 1, refundAmountCents: 500 },
+    id: "disp_0019",
+    orderId: "ord_4699",
+    chargeType: "wrong_item",
+    chargeAmountCents: 2840,
+    items: [
+      { name: "Aloo Gobi", quantity: 1, refundAmountCents: 1300 },
+      { name: "Garlic Naan", quantity: 2, refundAmountCents: 1000 },
     ],
-    customerComment: 'I only received raita, both mains were completely missing',
-    orderTimestamp: '2026-04-16T00:49:00.000Z',
-    chargeTimestamp: '2026-04-18T09:00:00.000Z',
-    disputeDeadline: '2026-05-02T09:00:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-026',
-    rawText:
-      'Error Charge #EC-026 | Missing Item | Order #DD-682047 | Charged: $42.00 | Customer: "I only received raita, both mains were completely missing" | Items disputed: Chicken Biryani (1×$22.00), Chole Bhature (1×$15.00) | Order placed: Apr 15 7:49 PM CDT | Delivered: Apr 15 8:22 PM CDT | Charge applied: Apr 18 | First-time customer',
+    customerComment: "Got chana masala when I ordered aloo gobi.",
+    daysAgo: 10,
+    hour: 19,
+  },
+  {
+    id: "disp_0020",
+    orderId: "ord_4711",
+    chargeType: "wrong_item",
+    chargeAmountCents: 3210,
+    items: [{ name: "Hyderabadi Biryani", quantity: 1, refundAmountCents: 1900 }],
+    daysAgo: 11,
+    hour: 20,
+  },
+  {
+    id: "disp_0021",
+    orderId: "ord_4727",
+    chargeType: "wrong_item",
+    chargeAmountCents: 5400,
+    items: [
+      { name: "Paneer Tikka", quantity: 1, refundAmountCents: 1700 },
+      { name: "Dal Makhani", quantity: 1, refundAmountCents: 1400 },
+      { name: "Butter Naan", quantity: 2, refundAmountCents: 1000 },
+    ],
+    customerComment: "Whole order was wrong — got someone else's bag.",
+    daysAgo: 5,
+    hour: 19,
   },
 
-  // ── Skip tier (shouldDispute: false) — 4 entries ──
+  // ─── 4 cold_food ─────────────────────────────────────────────────────────
   {
-    id: 'dc-027',
-    platform: 'doordash',
-    orderId: 'DD-794183',
-    chargeType: 'order_never_arrived',
-    chargeAmountCents: 4500,
-    itemsReported: [
-      { name: 'Lamb Rogan Josh', quantity: 1, refundAmountCents: 2400 },
-      { name: 'Palak Paneer', quantity: 1, refundAmountCents: 1600 },
-      { name: 'Raita', quantity: 1, refundAmountCents: 500 },
+    id: "disp_0022",
+    orderId: "ord_4738",
+    chargeType: "cold_food",
+    chargeAmountCents: 4180,
+    items: [
+      { name: "Masala Dosa", quantity: 2, refundAmountCents: 2800 },
+      { name: "Idli Sambar", quantity: 1, refundAmountCents: 1100 },
     ],
-    customerComment: 'My order never arrived. I waited 2 hours.',
-    orderTimestamp: '2026-04-17T01:48:00.000Z',
-    chargeTimestamp: '2026-04-18T09:30:00.000Z',
-    disputeDeadline: '2026-05-02T09:30:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-027',
-    rawText:
-      'Error Charge #EC-027 | Order Never Arrived | Order #DD-794183 | Charged: $45.00 | Customer: "My order never arrived. I waited 2 hours." | Dasher log: Order accepted 8:48 PM, NO delivery scan recorded | Customer photo: empty doorstep submitted | Charge applied: Apr 18',
+    customerComment: "Food was cold and old I want full refund",
+    daysAgo: 7,
+    hour: 21,
   },
   {
-    id: 'dc-028',
-    platform: 'doordash',
-    orderId: 'DD-804163',
-    chargeType: 'customer_cancel',
-    chargeAmountCents: 3000,
-    itemsReported: [
-      { name: 'Chicken Tikka Masala', quantity: 1, refundAmountCents: 2000 },
-      { name: 'Garlic Naan', quantity: 1, refundAmountCents: 500 },
-      { name: 'Raita', quantity: 1, refundAmountCents: 500 },
-    ],
-    customerComment: 'I changed my mind and cancelled',
-    orderTimestamp: '2026-04-17T00:22:00.000Z',
-    chargeTimestamp: '2026-04-18T10:00:00.000Z',
-    disputeDeadline: '2026-05-02T10:00:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-028',
-    rawText:
-      'Error Charge #EC-028 | Customer Cancel | Order #DD-804163 | Charged: $30.00 | Customer: "I changed my mind and cancelled" | Cancel time: 45 min after restaurant confirmed prep began | Kitchen log: tikka masala and naan already prepared at cancel time | Charge applied: Apr 18',
+    id: "disp_0023",
+    orderId: "ord_4744",
+    chargeType: "cold_food",
+    chargeAmountCents: 2890,
+    items: [{ name: "Chicken Biryani", quantity: 1, refundAmountCents: 1800 }],
+    customerComment: "Biryani arrived stone cold after 90 min wait.",
+    daysAgo: 9,
+    hour: 22,
   },
   {
-    id: 'dc-029',
-    platform: 'doordash',
-    orderId: 'DD-917834',
-    chargeType: 'cold_food',
-    chargeAmountCents: 2800,
-    itemsReported: [
-      { name: 'Masala Dosa', quantity: 2, refundAmountCents: 2800 },
-    ],
-    customerComment: 'Both dosas were cold and soggy. Took forever to arrive.',
-    orderTimestamp: '2026-04-17T02:04:00.000Z',
-    chargeTimestamp: '2026-04-18T10:30:00.000Z',
-    disputeDeadline: '2026-05-02T10:30:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-029',
-    rawText:
-      'Error Charge #EC-029 | Cold Food | Order #DD-917834 | Charged: $28.00 | Customer: "Both dosas were cold and soggy. Took forever to arrive." | Order placed: Apr 16 9:04 PM CDT | Picked up: Apr 16 9:22 PM CDT | Delivered: Apr 17 10:14 PM CDT (52 min transit) | Charge applied: Apr 18',
+    id: "disp_0024",
+    orderId: "ord_4759",
+    chargeType: "cold_food",
+    chargeAmountCents: 1960,
+    items: [{ name: "Rava Dosa", quantity: 1, refundAmountCents: 1300 }],
+    customerComment: "everything was bad",
+    daysAgo: 12,
+    hour: 20,
   },
   {
-    id: 'dc-030',
-    platform: 'doordash',
-    orderId: 'DD-034729',
-    chargeType: 'missing_item',
-    chargeAmountCents: 1600,
-    itemsReported: [
-      { name: 'Palak Paneer', quantity: 1, refundAmountCents: 1600 },
+    id: "disp_0025",
+    orderId: "ord_4763",
+    chargeType: "cold_food",
+    chargeAmountCents: 3470,
+    items: [
+      { name: "Paneer Butter Masala", quantity: 1, refundAmountCents: 1600 },
+      { name: "Butter Naan", quantity: 2, refundAmountCents: 1000 },
     ],
-    customerComment: 'Palak paneer was not included',
-    orderTimestamp: '2026-04-04T02:08:00.000Z',
-    chargeTimestamp: '2026-04-06T09:00:00.000Z',
-    disputeDeadline: '2026-04-20T09:00:00.000Z',
-    portalUrl: 'http://localhost:3000/mock-portal/disputes/dc-030',
-    rawText:
-      'Error Charge #EC-030 | Missing Item | Order #DD-034729 | Charged: $16.00 | Customer: "Palak paneer was not included" | Kitchen log: printer outage at 9:02 PM caused palak paneer ticket to not print | Staff acknowledgement on file | Charge applied: Apr 06 | DEADLINE: Apr 20',
+    daysAgo: 13,
+    hour: 21,
+  },
+
+  // ─── 3 order_never_arrived ───────────────────────────────────────────────
+  {
+    id: "disp_0026",
+    orderId: "ord_4778",
+    chargeType: "order_never_arrived",
+    chargeAmountCents: 6240,
+    items: [
+      { name: "Hyderabadi Biryani", quantity: 1, refundAmountCents: 1900 },
+      { name: "Paneer Tikka", quantity: 1, refundAmountCents: 1700 },
+      { name: "Gulab Jamun (2 pcs)", quantity: 2, refundAmountCents: 1200 },
+    ],
+    customerComment: "Driver marked delivered, never arrived. Apartment 4B.",
+    daysAgo: 2,
+    hour: 19,
+  },
+  {
+    id: "disp_0027",
+    orderId: "ord_4791",
+    chargeType: "order_never_arrived",
+    chargeAmountCents: 4830,
+    items: [
+      { name: "Chicken Biryani", quantity: 1, refundAmountCents: 1800 },
+      { name: "Mango Lassi", quantity: 2, refundAmountCents: 1000 },
+    ],
+    customerComment: "Order never came. Tried calling driver, no answer.",
+    daysAgo: 4,
+    hour: 20,
+  },
+  {
+    id: "disp_0028",
+    orderId: "ord_4806",
+    chargeType: "order_never_arrived",
+    chargeAmountCents: 3590,
+    items: [
+      { name: "Gobi Manchurian", quantity: 1, refundAmountCents: 1400 },
+      { name: "Veg Biryani", quantity: 1, refundAmountCents: 1500 },
+    ],
+    daysAgo: 6,
+    hour: 19,
+  },
+
+  // ─── 2 customer_cancel ───────────────────────────────────────────────────
+  {
+    id: "disp_0029",
+    orderId: "ord_4819",
+    chargeType: "customer_cancel",
+    chargeAmountCents: 2870,
+    items: [
+      { name: "Onion Uttapam", quantity: 1, refundAmountCents: 1400 },
+      { name: "Masala Chai", quantity: 1, refundAmountCents: 400 },
+    ],
+    customerComment: "Changed my mind, want a refund.",
+    daysAgo: 5,
+    hour: 14,
+  },
+  {
+    id: "disp_0030",
+    orderId: "ord_4828",
+    chargeType: "customer_cancel",
+    chargeAmountCents: 4150,
+    items: [
+      { name: "Chicken Biryani", quantity: 1, refundAmountCents: 1800 },
+      { name: "Garlic Naan", quantity: 2, refundAmountCents: 1000 },
+    ],
+    daysAgo: 8,
+    hour: 19,
   },
 ];
+
+export const FIXTURE_DISPUTES: DisputeCandidate[] = SEEDS.map(seedToCandidate);
+
+if (FIXTURE_DISPUTES.length !== 30) {
+  throw new Error(
+    `FIXTURE_DISPUTES must contain exactly 30 records (got ${FIXTURE_DISPUTES.length}).`
+  );
+}

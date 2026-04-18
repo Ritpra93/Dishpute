@@ -1,6 +1,11 @@
 import type { DisputeCandidate, SubmissionResult } from "@counter/types";
 import { FIXTURE_DISPUTES } from "@counter/types";
-import { createMockScraper, DEMO_OUTCOMES_SUMMARY } from "./mock";
+import {
+  createMockScraper,
+  DEMO_APPROVED_IDS,
+  DEMO_DENIED_IDS,
+  DEMO_OUTCOMES_SUMMARY,
+} from "./mock";
 import { listOpenDisputes, submitDispute, scrapeOutcomes } from "./doordash";
 
 export interface Scraper {
@@ -51,4 +56,9 @@ export function createScraper(opts: { tinyFishApiKey: string }): Scraper {
   };
 }
 
-export { createMockScraper, DEMO_OUTCOMES_SUMMARY };
+export {
+  createMockScraper,
+  DEMO_APPROVED_IDS,
+  DEMO_DENIED_IDS,
+  DEMO_OUTCOMES_SUMMARY,
+};

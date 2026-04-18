@@ -53,13 +53,24 @@ function buildSkippedClassification(
 
 // ─── factories ────────────────────────────────────────────────────────────────
 
-export function createMockClassifier(): Classifier {
+export interface MockClassifierOptions {
+  /** Optional artificial latency per call to mimic Claude. Defaults to 0. */
+  latencyMs?: number;
+}
+
+export function createMockClassifier(opts: MockClassifierOptions = {}): Classifier {
+  const sleep = (ms: number) =>
+    ms > 0 ? new Promise<void>((r) => setTimeout(r, ms)) : Promise.resolve();
+  const latency = opts.latencyMs ?? 0;
+
   return {
     async classify(candidate) {
+      await sleep(latency);
       return buildMockClassification(candidate);
     },
     async classifyMany(candidates) {
-      return Promise.all(candidates.map((c) => buildMockClassification(c)));
+      await sleep(latency);
+      return candidates.map((c) => buildMockClassification(c));
     },
   };
 }

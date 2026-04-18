@@ -2,7 +2,8 @@
  * Live integration test — hits the real Anthropic API.
  * Run manually: ANTHROPIC_API_KEY=sk-ant-... tsx test/live.test.ts
  *
- * Uses dc-006: $60 charge, vague complaint, all 4 items on one ticket.
+ * Uses disp_0004: $56.80 order, "half my order missing — biryani and paneer",
+ * 3 items on one ticket. This is a strong-merit dispute in our fixture set.
  * Tests the full Haiku → Sonnet path. Costs ~$0.005 per run.
  * NOT part of pnpm test (no API key in CI).
  */
@@ -18,11 +19,8 @@ async function main() {
     process.exit(0);
   }
 
-  // dc-006: Tandoori Chicken Half + Lamb Rogan Josh + Garlic Naan ×2 + Raita
-  // $60.00, customer said "some items were missing but I can't remember which"
-  // Expected: high-merit dispute, shouldDispute: true, meritScore >= 70
-  const candidate = FIXTURE_DISPUTES.find((d) => d.id === 'dc-006')!;
-  assert.ok(candidate, 'dc-006 not found in FIXTURE_DISPUTES');
+  const candidate = FIXTURE_DISPUTES.find((d) => d.id === 'disp_0004');
+  assert.ok(candidate, 'disp_0004 not found in FIXTURE_DISPUTES');
 
   console.log(`\nLive test — candidate: ${candidate.id}`);
   console.log(`  Order:   ${candidate.orderId}`);
@@ -38,7 +36,7 @@ async function main() {
 
   // ── assertions ──────────────────────────────────────────────────────────────
 
-  assert.equal(result.candidateId, 'dc-006', 'candidateId must match');
+  assert.equal(result.candidateId, 'disp_0004', 'candidateId must match');
   assert.ok(result.generatedAt, 'generatedAt must be set');
   assert.ok(!isNaN(Date.parse(result.generatedAt)), 'generatedAt must be a valid ISO string');
   console.log('✓ candidateId and generatedAt correct');

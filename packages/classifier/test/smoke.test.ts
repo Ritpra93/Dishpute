@@ -26,9 +26,9 @@ async function run() {
   );
   const skip = results.filter((r) => !r.shouldDispute);
 
-  assert.ok(autoSubmit.length >= 22, `Expected ≥22 auto-submit, got ${autoSubmit.length}`);
-  assert.ok(humanReview.length >= 4, `Expected ≥4 human-review, got ${humanReview.length}`);
-  assert.ok(skip.length >= 4, `Expected ≥4 skip, got ${skip.length}`);
+  assert.equal(autoSubmit.length, 22, `Expected 22 auto-submit, got ${autoSubmit.length}`);
+  assert.equal(humanReview.length, 4, `Expected 4 human-review, got ${humanReview.length}`);
+  assert.equal(skip.length, 4, `Expected 4 skip, got ${skip.length}`);
   console.log(`✓ Merit distribution: ${autoSubmit.length} auto-submit | ${humanReview.length} human-review | ${skip.length} skip`);
 
   // 4. Demo number: $892.00 recoverable from auto-submit tier
@@ -45,17 +45,22 @@ async function run() {
   // 6. Every result has required fields and valid shapes
   for (const r of results) {
     assert.ok(typeof r.meritScore === 'number' && r.meritScore >= 0 && r.meritScore <= 100, `Invalid meritScore for ${r.candidateId}`);
-    assert.ok(r.draftedDisputeText.length >= 50, `draftedDisputeText too short for ${r.candidateId}`);
+    if (r.shouldDispute) {
+      assert.ok(r.draftedDisputeText.length >= 50, `draftedDisputeText too short for ${r.candidateId} (${r.draftedDisputeText.length} chars)`);
+    }
     assert.ok(r.evidenceCitations.length >= 1, `evidenceCitations empty for ${r.candidateId}`);
     assert.ok(r.generatedAt, `Missing generatedAt for ${r.candidateId}`);
   }
   console.log('✓ All results have valid field shapes');
 
-  // 7. Single classify works too
-  const single = await classifier.classify(FIXTURE_DISPUTES[0]);
-  assert.equal(single.candidateId, 'dc-001');
-  assert.equal(single.recoverableCents, 5200);
-  console.log('✓ classify() works for single candidate');
+  // 7. Single classify works too — disp_0001 is the canonical "$47.80 / order 4472" demo dispute
+  const first = FIXTURE_DISPUTES[0];
+  if (!first) throw new Error('FIXTURE_DISPUTES is empty');
+  const single = await classifier.classify(first);
+  assert.equal(single.candidateId, 'disp_0001');
+  assert.equal(single.recoverableCents, 5390);
+  assert.ok(single.meritScore >= 70);
+  console.log('✓ classify() works for single candidate (disp_0001: $53.90 recoverable)');
 
   console.log('\nAll smoke tests passed.');
 }

@@ -30,7 +30,11 @@ router.post(
         return;
       }
 
-      const event = client.webhooks.constructEvent(
+      // constructEvent is async — verifies HMAC via Web Crypto, returns the
+      // parsed event. Missing `await` here silently breaks the webhook:
+      // `event` becomes a Promise, every `event.type === ...` check is false,
+      // and no transcript lands.
+      const event = await client.webhooks.constructEvent(
         req.body.toString("utf-8"),
         sig,
         config.elevenLabsWebhookSecret

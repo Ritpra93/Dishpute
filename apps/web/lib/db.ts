@@ -2,8 +2,14 @@ import Database from "better-sqlite3";
 import path from "node:path";
 import fs from "node:fs";
 
-const DB_PATH = path.join(process.cwd(), "counter.db");
-const SCHEMA_PATH = path.join(process.cwd(), "lib", "schema.sql");
+// Shared DB lives at the repo root — apps/web and apps/voice BOTH point here
+// so voice-call records land in the same SQLite file the dashboard reads.
+// Override via DB_PATH env var (used by integration tests).
+const REPO_ROOT = path.join(process.cwd(), "..", "..");
+const DB_PATH = process.env["DB_PATH"] ?? path.join(REPO_ROOT, "counter.db");
+
+// Canonical schema lives in @counter/types — one source of truth.
+const SCHEMA_PATH = path.join(REPO_ROOT, "packages", "types", "schema.sql");
 
 let db: Database.Database | null = null;
 
