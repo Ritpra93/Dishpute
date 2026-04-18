@@ -59,9 +59,14 @@ const statsRoute = await import("@/app/api/stats/route");
 const submitAllRoute = await import("@/app/api/disputes/submit-all/route");
 const escalateRoute = await import("@/app/api/disputes/[id]/escalate/route");
 
-// Start the voice app in-process.
+// Start the voice app in-process. We type structurally on `.listen` instead of
+// importing `import("express").Express` so apps/web doesn't need express in its
+// own deps just to run this rehearsal test.
+type ListenableApp = {
+  listen(port: number, cb?: () => void): Server;
+};
 const voiceServerMod = await import("../../../apps/voice/src/server");
-const createVoiceApp = voiceServerMod.createApp as () => import("express").Express;
+const createVoiceApp = voiceServerMod.createApp as () => ListenableApp;
 
 let voiceServer: Server;
 let voiceBaseUrl: string;

@@ -92,12 +92,15 @@ describe("Beat 3 — Submit all lands on $892 / 22 of 22", () => {
   it("submit-all submits exactly 22 disputes", async () => {
     const { status, body } = await callJsonRoute<{
       submitted: number;
-      results: unknown[];
+      approved: number;
+      denied: number;
+      pending: number;
+      totalRefundedCents: number;
     }>(submitAllRoute.POST, "http://localhost/api/disputes/submit-all");
 
     expect(status).toBe(200);
     expect(body.submitted).toBe(22);
-    expect(body.results).toHaveLength(22);
+    expect(body.approved + body.denied + body.pending).toBe(22);
   });
 
   it("/api/stats reports totalSubmittedRecoverableCents === 89200 ($892)", async () => {

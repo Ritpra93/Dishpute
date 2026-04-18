@@ -26,9 +26,11 @@ export function cleanupDb(tmpPath: string): void {
   }
 }
 
+type RouteHandler = (req: Request, ctx?: never) => Promise<Response>;
+
 /** POST a JSON body to a Next.js route handler. */
 export async function callJsonRoute<T>(
-  handler: (req: Request, ctx?: unknown) => Promise<Response>,
+  handler: RouteHandler | ((...args: never[]) => Promise<Response>),
   url: string,
   body?: unknown,
   ctx?: unknown,
@@ -38,7 +40,7 @@ export async function callJsonRoute<T>(
     headers: { "content-type": "application/json" },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  const res = await handler(req, ctx);
+  const res = await (handler as (req: Request, ctx?: unknown) => Promise<Response>)(req, ctx);
   const status = res.status;
   const text = await res.text();
   const parsed = text ? (JSON.parse(text) as T) : ({} as T);
@@ -47,11 +49,11 @@ export async function callJsonRoute<T>(
 
 /** GET a Next.js route handler that takes no params. */
 export async function getJsonRoute<T>(
-  handler: (req?: Request) => Promise<Response>,
+  handler: ((req?: Request) => Promise<Response>) | ((...args: never[]) => Promise<Response>),
   url: string,
 ): Promise<{ status: number; body: T }> {
   const req = new Request(url, { method: "GET" });
-  const res = await handler(req);
+  const res = await (handler as (req?: Request) => Promise<Response>)(req);
   const status = res.status;
   const text = await res.text();
   const parsed = text ? (JSON.parse(text) as T) : ({} as T);

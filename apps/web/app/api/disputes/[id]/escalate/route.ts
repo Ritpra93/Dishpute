@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { getCandidate, getClassification, upsertOutcome } from "@/lib/repo";
+import { parseJson, parseParam } from "@/lib/parse-request";
 import { DEMO_MERCHANT } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -20,12 +22,12 @@ export const dynamic = "force-dynamic";
  *   Response { candidateId, elevenLabsConversationId, twilioCallSid, startedAt }
  */
 
-interface EscalateBody {
-  /** Optional override for denial-reason text (otherwise derived). */
-  reason?: string;
-}
+const CandidateIdSchema = z.string().regex(/^disp_[0-9]+$/);
 
-/** Turn an ordId like "ord_4561" into a 4-digit case number the agent can say. */
+const EscalateBodySchema = z.object({
+  reason: z.string().max(500).optional(),
+});
+
 function caseNumberFromCandidate(candidateId: string, orderId: string): string {
   const m = orderId.match(/\d+/);
   return m ? m[0] : candidateId.replace(/\D/g, "");
@@ -35,20 +37,23 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const body = (await request.json().catch(() => ({}))) as EscalateBody;
+  const { id: rawId } = await params;
+  const idCheck = parseParam(rawId, CandidateIdSchema, "candidate id");
+  if (!idCheck.ok) return idCheck.response;
+  const id = idCheck.data;
+
+  const parsed = await parseJson(request, EscalateBodySchema);
+  if (!parsed.ok) return parsed.response;
 
   const candidate = getCandidate(id);
   const classification = getClassification(id);
   if (!candidate || !classification) {
     return NextResponse.json(
-      { error: `Candidate ${id} not found or has no classification.` },
+      { error: "Candidate not found or has no classification." },
       { status: 404 }
     );
   }
 
-  // Mark this dispute as denied + voice-eligible (idempotent; click can happen
-  // before or after the platform's own adjudication).
   upsertOutcome({
     candidateId: id,
     outcome: "denied",
@@ -59,7 +64,7 @@ export async function POST(
 
   const caseNumber = caseNumberFromCandidate(id, candidate.orderId);
   const denialReason =
-    body.reason ??
+    parsed.data.reason ??
     `Platform denied ${classification.resolvedChargeType} dispute citing insufficient evidence.`;
 
   const voicePayload = {
@@ -90,8 +95,15 @@ export async function POST(
       body: JSON.stringify(voicePayload),
     });
     if (!upstream.ok) {
-      const text = await upstream.text().catch(() => "");
-      throw new Error(`apps/voice returned HTTP ${upstream.status}: ${text}`);
+      const upstreamBody = await upstream.text().catch(() => "");
+      console.error("[escalate] voice upstream failed", {
+        status: upstream.status,
+        body: upstreamBody.slice(0, 500),
+      });
+      return NextResponse.json(
+        { error: "Voice escalation failed", candidateId: id },
+        { status: 502 }
+      );
     }
     const data = await upstream.json();
     return NextResponse.json({
@@ -101,13 +113,12 @@ export async function POST(
       ...data,
     });
   } catch (err) {
+    console.error("[escalate] voice request errored", {
+      candidateId: id,
+      error: err instanceof Error ? err.message : String(err),
+    });
     return NextResponse.json(
-      {
-        candidateId: id,
-        mode: "error",
-        payload: voicePayload,
-        error: err instanceof Error ? err.message : String(err),
-      },
+      { error: "Voice escalation failed", candidateId: id },
       { status: 502 }
     );
   }

@@ -6,9 +6,14 @@ export default defineConfig({
     environment: "node",
     include: ["test/**/*.test.ts"],
     // One fixture DB per file; individual tests reset tables as needed.
-    fileParallel: false,
+    fileParallelism: false,
     hookTimeout: 30000,
     testTimeout: 30000,
+    // Allow tests to call POST /api/scan with { reset: true }. In production this
+    // gate is OFF — see apps/web/app/api/scan/route.ts.
+    env: {
+      ALLOW_DESTRUCTIVE_RESET: "1",
+    },
   },
   resolve: {
     alias: {

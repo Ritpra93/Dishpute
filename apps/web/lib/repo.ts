@@ -318,42 +318,63 @@ export function computeStats(): DashboardStats {
       n: number;
     }).n;
 
-  const sum = (sql: string): number =>
-    (db.prepare(sql).get() as { cents: number }).cents;
+  const cents = (row: unknown): number => (row as { cents: number }).cents;
 
-  const totalSubmittedRecoverableCents = sum(
-    `SELECT COALESCE(SUM(c.recoverable_cents), 0) AS cents
-     FROM submissions s
-     JOIN classifications c ON c.candidate_id = s.candidate_id
-     WHERE s.status = 'submitted'`
+  const totalSubmittedRecoverableCents = cents(
+    db
+      .prepare(
+        `SELECT COALESCE(SUM(c.recoverable_cents), 0) AS cents
+         FROM submissions s
+         JOIN classifications c ON c.candidate_id = s.candidate_id
+         WHERE s.status = 'submitted'`
+      )
+      .get()
   );
 
-  const totalRealizedCents =
-    sum(
-      `SELECT COALESCE(SUM(o.refunded_cents), 0) AS cents
-       FROM outcomes o
-       WHERE o.outcome = 'approved'`
-    ) +
-    sum(
-      `SELECT COALESCE(SUM(v.recovered_cents), 0) AS cents
-       FROM voice_calls v
-       WHERE v.call_outcome = 'recovered'`
-    );
-
-  const totalInFlightCents = sum(
-    `SELECT COALESCE(SUM(c.recoverable_cents), 0) AS cents
-     FROM submissions s
-     JOIN classifications c ON c.candidate_id = s.candidate_id
-     JOIN outcomes o ON o.candidate_id = s.candidate_id
-     WHERE s.status = 'submitted' AND o.outcome = 'pending'`
+  const totalApprovedRefundedCents = cents(
+    db
+      .prepare(
+        `SELECT COALESCE(SUM(o.refunded_cents), 0) AS cents
+         FROM outcomes o
+         WHERE o.outcome = 'approved'`
+      )
+      .get()
   );
 
-  const totalDeniedCents = sum(
-    `SELECT COALESCE(SUM(c.recoverable_cents), 0) AS cents
-     FROM submissions s
-     JOIN classifications c ON c.candidate_id = s.candidate_id
-     JOIN outcomes o ON o.candidate_id = s.candidate_id
-     WHERE s.status = 'submitted' AND o.outcome = 'denied'`
+  const totalVoiceRecoveredCents = cents(
+    db
+      .prepare(
+        `SELECT COALESCE(SUM(v.recovered_cents), 0) AS cents
+         FROM voice_calls v
+         WHERE v.call_outcome = 'recovered'`
+      )
+      .get()
+  );
+
+  const totalRealizedCents = totalApprovedRefundedCents + totalVoiceRecoveredCents;
+
+  const totalInFlightCents = cents(
+    db
+      .prepare(
+        `SELECT COALESCE(SUM(c.recoverable_cents), 0) AS cents
+         FROM submissions s
+         JOIN classifications c ON c.candidate_id = s.candidate_id
+         JOIN outcomes o ON o.candidate_id = s.candidate_id
+         WHERE s.status = 'submitted' AND o.outcome = 'pending'`
+      )
+      .get()
+  );
+
+  const totalDeniedCents = cents(
+    db
+      .prepare(
+        `SELECT COALESCE(SUM(c.recoverable_cents), 0) AS cents
+         FROM submissions s
+         JOIN classifications c ON c.candidate_id = s.candidate_id
+         JOIN outcomes o ON o.candidate_id = s.candidate_id
+         WHERE s.status = 'submitted' AND o.outcome = 'denied'`
+      )
+      .get()
   );
 
   return {

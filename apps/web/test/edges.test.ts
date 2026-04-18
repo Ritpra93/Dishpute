@@ -5,7 +5,7 @@
  * prove it by running the failure case AND the success case and asserting
  * the consumer doesn't crash + produces the documented state.
  */
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { cleanupDb, callJsonRoute, getJsonRoute, useTempDb } from "./helpers";
 
 const DB_PATH = useTempDb("edges");

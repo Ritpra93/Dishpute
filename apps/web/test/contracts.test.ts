@@ -153,15 +153,17 @@ describe("P2.3 dashboard → voice (escalate payload matches /calls/outbound con
     });
     process.env.VOICE_ESCALATE_URL = "http://fake/outbound";
     try {
-      const { status, body } = await callJsonRoute<{ mode: string; error: string }>(
+      const { status, body } = await callJsonRoute<{ error: string; candidateId: string }>(
         escalateRoute.POST,
         "http://localhost/api/disputes/disp_0023/escalate",
         {},
         { params: Promise.resolve({ id: "disp_0023" }) },
       );
       expect(status).toBe(502);
-      expect(body.mode).toBe("error");
-      expect(body.error).toMatch(/network|fetch/i);
+      expect(body.error).toBe("Voice escalation failed");
+      expect(body.candidateId).toBe("disp_0023");
+      // Important: client response must NOT leak upstream error details.
+      expect(JSON.stringify(body)).not.toMatch(/network|fetch failed|simulated/i);
     } finally {
       fetchSpy.mockRestore();
       delete process.env.VOICE_ESCALATE_URL;

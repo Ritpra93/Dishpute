@@ -18,10 +18,18 @@ export async function POST() {
 
   const submittable = listSubmittableClassifications(MERIT_THRESHOLDS.AUTO_SUBMIT);
 
-  const submissions = [];
+  let approved = 0;
+  let denied = 0;
+  let pending = 0;
+  let skipped = 0;
+  let totalRefundedCents = 0;
+
   for (const cls of submittable) {
     const candidate = getCandidate(cls.candidateId);
-    if (!candidate) continue;
+    if (!candidate) {
+      skipped += 1;
+      continue;
+    }
     const submission = await scraper.submitDispute({
       candidate,
       draftedText: cls.draftedDisputeText,
@@ -36,6 +44,7 @@ export async function POST() {
         adjudicatedAt: new Date().toISOString(),
         escalateToVoice: cls.meritScore >= 70,
       });
+      denied += 1;
     } else if (APPROVED_IDS.has(cls.candidateId)) {
       upsertOutcome({
         candidateId: cls.candidateId,
@@ -44,6 +53,8 @@ export async function POST() {
         adjudicatedAt: new Date().toISOString(),
         escalateToVoice: false,
       });
+      approved += 1;
+      totalRefundedCents += cls.recoverableCents;
     } else {
       upsertOutcome({
         candidateId: cls.candidateId,
@@ -51,12 +62,16 @@ export async function POST() {
         refundedCents: 0,
         escalateToVoice: false,
       });
+      pending += 1;
     }
-    submissions.push(submission);
   }
 
   return NextResponse.json({
-    submitted: submissions.length,
-    results: submissions,
+    submitted: approved + denied + pending,
+    approved,
+    denied,
+    pending,
+    skipped,
+    totalRefundedCents,
   });
 }
