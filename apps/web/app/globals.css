@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 9%;
+    --radius: 0.5rem;
+
+    /* Counter brand: single green accent for "recovered money" */
+    --money: 142 71% 35%;
+    --money-foreground: 0 0% 100%;
+    --money-soft: 142 76% 96%;
+    --money-soft-foreground: 142 71% 25%;
+
+    /* Merit-tier soft tints */
+    --merit-high-bg: 142 76% 97%;
+    --merit-mid-bg: 38 92% 96%;
+    --merit-low-bg: 0 0% 96%;
+    --denied-border: 0 72% 51%;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: 0 0% 7%;
+      --foreground: 0 0% 96%;
+      --card: 0 0% 9%;
+      --card-foreground: 0 0% 96%;
+      --popover: 0 0% 9%;
+      --popover-foreground: 0 0% 96%;
+      --primary: 0 0% 96%;
+      --primary-foreground: 0 0% 9%;
+      --secondary: 0 0% 14%;
+      --secondary-foreground: 0 0% 96%;
+      --muted: 0 0% 14%;
+      --muted-foreground: 0 0% 60%;
+      --accent: 0 0% 14%;
+      --accent-foreground: 0 0% 96%;
+      --destructive: 0 62.8% 30.6%;
+      --destructive-foreground: 0 0% 96%;
+      --border: 0 0% 16%;
+      --input: 0 0% 16%;
+      --ring: 0 0% 84%;
+
+      --money: 142 65% 55%;
+      --money-foreground: 0 0% 9%;
+      --money-soft: 142 35% 14%;
+      --money-soft-foreground: 142 65% 75%;
+
+      --merit-high-bg: 142 35% 12%;
+      --merit-mid-bg: 38 30% 14%;
+      --merit-low-bg: 0 0% 12%;
+      --denied-border: 0 72% 55%;
+    }
+  }
+}
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-money: hsl(var(--money));
+  --color-money-foreground: hsl(var(--money-foreground));
+  --color-money-soft: hsl(var(--money-soft));
+  --color-money-soft-foreground: hsl(var(--money-soft-foreground));
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, "Helvetica Neue", Arial, sans-serif;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+html,
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: var(--font-sans);
+}

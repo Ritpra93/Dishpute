@@ -1,0 +1,12 @@
+node_modules
+.next
+out
+dist
+*.log
+.env
+.env.local
+counter.db
+counter.db-journal
+counter.db-wal
+counter.db-shm
+.DS_Store

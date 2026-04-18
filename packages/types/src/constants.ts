@@ -22,3 +22,11 @@ export const SUBMIT_CONCURRENCY = 5;
 
 /** Classifier concurrency when batching. */
 export const CLASSIFIER_CONCURRENCY = 10;
+
+/** Demo merchant identity used across the stack. */
+export const DEMO_MERCHANT = {
+  id: "merchant_hoc",
+  name: "House of Curry",
+  locations: 3,
+  city: "Minneapolis",
+} as const;

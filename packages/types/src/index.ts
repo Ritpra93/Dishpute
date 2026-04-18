@@ -1,11 +1,11 @@
 export type Platform = "doordash" | "ubereats" | "grubhub";
 
 export type ErrorChargeType =
-  | "missing_item" // customer reported item not in bag
-  | "wrong_item" // customer reported wrong item delivered
-  | "order_never_arrived" // delivery failure charged to merchant
-  | "cold_food" // quality complaint
-  | "customer_cancel" // customer cancel after prep
+  | "missing_item"
+  | "wrong_item"
+  | "order_never_arrived"
+  | "cold_food"
+  | "customer_cancel"
   | "unknown";
 
 /**
@@ -92,5 +92,5 @@ export interface VoiceCallRecord {
   recoveredCents?: number;
 }
 
-export { FIXTURE_DISPUTES, DEMO_MERCHANT } from "./fixtures";
 export * from "./constants";
+export * from "./fixtures";
