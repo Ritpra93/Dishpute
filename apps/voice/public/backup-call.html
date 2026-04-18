@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Counter — Backup Call Recording</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b0d10;
+        --panel: #14181d;
+        --border: #242a31;
+        --accent: #ff6a00;
+        --accent-hover: #ff7a1a;
+        --text: #eef2f7;
+        --muted: #8a95a3;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI",
+          Helvetica, Arial, sans-serif;
+      }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 32px;
+      }
+      .card {
+        width: 100%;
+        max-width: 640px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 40px 36px;
+        box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+      }
+      .eyebrow {
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin: 0 0 12px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      p.sub {
+        margin: 0 0 28px;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.5;
+      }
+      .play-wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 18px;
+        padding: 28px 0 8px;
+      }
+      button.play {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 140px;
+        height: 140px;
+        border-radius: 50%;
+        border: none;
+        background: var(--accent);
+        color: #0b0d10;
+        cursor: pointer;
+        box-shadow: 0 12px 40px rgba(255, 106, 0, 0.35);
+        transition: transform 120ms ease, background-color 120ms ease;
+      }
+      button.play:hover { background: var(--accent-hover); transform: scale(1.03); }
+      button.play:active { transform: scale(0.98); }
+      button.play svg { width: 56px; height: 56px; }
+      audio {
+        width: 100%;
+        margin-top: 16px;
+      }
+      .meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 24px;
+        padding-top: 20px;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #2ecc71;
+        margin-right: 8px;
+        vertical-align: middle;
+      }
+      .error {
+        display: none;
+        margin-top: 20px;
+        padding: 14px 16px;
+        background: rgba(255, 80, 80, 0.08);
+        border: 1px solid rgba(255, 80, 80, 0.35);
+        border-radius: 10px;
+        color: #ff8a8a;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      .error code {
+        background: rgba(0, 0, 0, 0.3);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <p class="eyebrow">Counter · Demo safety net</p>
+      <h1>Backup call recording</h1>
+      <p class="sub">
+        Pre-recorded voice-agent escalation. Tap play to run the canned version of
+        Beat&nbsp;4 if the live call fails on stage.
+      </p>
+
+      <div class="play-wrap">
+        <button class="play" id="playBtn" aria-label="Play backup call">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M8 5.14v13.72c0 .79.87 1.27 1.54.84l10.62-6.86a1 1 0 0 0 0-1.68L9.54 4.3A1 1 0 0 0 8 5.14z" />
+          </svg>
+        </button>
+        <audio id="player" controls preload="metadata" src="./backup-call.mp3"></audio>
+        <div class="error" id="err">
+          <strong>No recording file yet.</strong> Drop the MP3 at
+          <code>apps/voice/public/backup-call.mp3</code> and refresh.
+        </div>
+      </div>
+
+      <div class="meta">
+        <span><span class="dot"></span>Agent: Counter escalation</span>
+        <span id="status">Ready</span>
+      </div>
+    </main>
+
+    <script>
+      const btn = document.getElementById("playBtn");
+      const audio = document.getElementById("player");
+      const err = document.getElementById("err");
+      const status = document.getElementById("status");
+
+      btn.addEventListener("click", () => {
+        if (audio.paused) audio.play();
+        else audio.pause();
+      });
+
+      audio.addEventListener("play", () => (status.textContent = "Playing"));
+      audio.addEventListener("pause", () => (status.textContent = "Paused"));
+      audio.addEventListener("ended", () => (status.textContent = "Finished"));
+      audio.addEventListener("error", () => {
+        err.style.display = "block";
+        status.textContent = "No audio file";
+      });
+    </script>
+  </body>
+</html>
