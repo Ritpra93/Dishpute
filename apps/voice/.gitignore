@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env.local
+.env
+*.log
+.DS_Store
+public/backup-call.mp3

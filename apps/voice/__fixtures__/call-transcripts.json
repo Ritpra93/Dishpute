@@ -1,0 +1,130 @@
+[
+  {
+    "candidateId": "dispute_4472",
+    "elevenLabsConversationId": "conv_fixture_recovered_01",
+    "twilioCallSid": "CAfixturerecovered0001",
+    "startedAt": "2026-04-18T19:12:04.000Z",
+    "endedAt": "2026-04-18T19:13:01.000Z",
+    "callOutcome": "recovered",
+    "recoveredCents": 2840,
+    "transcript": [
+      {
+        "role": "agent",
+        "message": "Hi, this is an automated agent calling on behalf of House of Curry. I'd like to discuss dispute case 31188 that was denied this morning. Do you have a moment?",
+        "timeInCallSecs": 0
+      },
+      {
+        "role": "user",
+        "message": "Sure, what's the case number again?",
+        "timeInCallSecs": 9
+      },
+      {
+        "role": "agent",
+        "message": "Case 31188, order 4472, charged twenty-eight dollars and forty cents on Tuesday. The denial reason cited was 'insufficient evidence.'",
+        "timeInCallSecs": 12
+      },
+      {
+        "role": "user",
+        "message": "Okay, I see it here. What evidence do you have?",
+        "timeInCallSecs": 22
+      },
+      {
+        "role": "agent",
+        "message": "POS transaction 4472 confirms all three items were prepared and bagged at 19:38. The kitchen pickup photo is timestamped 19:42 and shows the complete order. Driver log shows on-time delivery at 19:58 with no customer contact issues.",
+        "timeInCallSecs": 25
+      },
+      {
+        "role": "user",
+        "message": "That's enough. I'll reverse the denial. You'll see the refund within twenty-four hours.",
+        "timeInCallSecs": 41
+      },
+      {
+        "role": "agent",
+        "message": "Thank you for reviewing. Have a good evening.",
+        "timeInCallSecs": 48
+      }
+    ]
+  },
+  {
+    "candidateId": "dispute_4501",
+    "elevenLabsConversationId": "conv_fixture_still_denied_01",
+    "twilioCallSid": "CAfixturedenied0002",
+    "startedAt": "2026-04-18T19:22:10.000Z",
+    "endedAt": "2026-04-18T19:23:45.000Z",
+    "callOutcome": "still_denied",
+    "recoveredCents": 0,
+    "transcript": [
+      {
+        "role": "agent",
+        "message": "Hi, this is an automated agent calling on behalf of House of Curry. I'd like to discuss dispute case 31204 that was denied yesterday.",
+        "timeInCallSecs": 0
+      },
+      {
+        "role": "user",
+        "message": "Go ahead.",
+        "timeInCallSecs": 7
+      },
+      {
+        "role": "agent",
+        "message": "Case 31204, order 4501. Charged forty-one dollars on Monday. Denial reason was 'customer confirmed refund eligibility.'",
+        "timeInCallSecs": 9
+      },
+      {
+        "role": "user",
+        "message": "Right, the customer reported cold food and we already credited them. Our policy says that ends the dispute.",
+        "timeInCallSecs": 19
+      },
+      {
+        "role": "agent",
+        "message": "Understood. Can I escalate this to a supervisor for policy review?",
+        "timeInCallSecs": 29
+      },
+      {
+        "role": "user",
+        "message": "You can, but the policy won't change. I'll log the escalation either way.",
+        "timeInCallSecs": 36
+      },
+      {
+        "role": "agent",
+        "message": "Please log it. Thank you for your time.",
+        "timeInCallSecs": 45
+      }
+    ]
+  },
+  {
+    "candidateId": "dispute_4538",
+    "elevenLabsConversationId": "conv_fixture_callback_01",
+    "twilioCallSid": "CAfixturecallback0003",
+    "startedAt": "2026-04-18T19:35:00.000Z",
+    "endedAt": "2026-04-18T19:35:58.000Z",
+    "callOutcome": "callback_requested",
+    "recoveredCents": 0,
+    "transcript": [
+      {
+        "role": "agent",
+        "message": "Hi, this is an automated agent calling on behalf of House of Curry about dispute case 31219, denied this morning.",
+        "timeInCallSecs": 0
+      },
+      {
+        "role": "user",
+        "message": "I'm in a queue review right now — can you have someone call back in an hour?",
+        "timeInCallSecs": 8
+      },
+      {
+        "role": "agent",
+        "message": "Absolutely. I'll queue a callback for case 31219 in one hour. The contact number is on file with the merchant.",
+        "timeInCallSecs": 14
+      },
+      {
+        "role": "user",
+        "message": "Perfect. Talk then.",
+        "timeInCallSecs": 22
+      },
+      {
+        "role": "agent",
+        "message": "Thank you. Have a good evening.",
+        "timeInCallSecs": 25
+      }
+    ]
+  }
+]
