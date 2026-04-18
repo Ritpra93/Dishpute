@@ -14,22 +14,22 @@ export type ErrorChargeType =
  * Consumed by: packages/classifier, apps/web
  */
 export interface DisputeCandidate {
-  id: string;
+  id: string; // portal's unique charge ID
   platform: Platform;
-  orderId: string;
-  chargeType: ErrorChargeType;
-  chargeAmountCents: number;
+  orderId: string; // merchant's order reference
+  chargeType: ErrorChargeType; // best-effort from portal labels; classifier may override
+  chargeAmountCents: number; // what the platform deducted
   itemsReported: Array<{
     name: string;
     quantity: number;
     refundAmountCents: number;
   }>;
-  customerComment?: string;
-  orderTimestamp: string;
-  chargeTimestamp: string;
-  disputeDeadline: string;
-  portalUrl: string;
-  rawText: string;
+  customerComment?: string; // free text from customer, if provided
+  orderTimestamp: string; // ISO 8601
+  chargeTimestamp: string; // ISO 8601
+  disputeDeadline: string; // ISO 8601, 14 days after charge
+  portalUrl: string; // deep link back to the dispute in the mock portal
+  rawText: string; // full scraped text for the classifier to read
 }
 
 /**
@@ -40,13 +40,13 @@ export interface DisputeCandidate {
 export interface ClassifiedDispute {
   candidateId: string;
   shouldDispute: boolean;
-  meritScore: number;
-  reasoning: string;
+  meritScore: number; // 0–100
+  reasoning: string; // 1–3 sentences, surfaced in UI
   resolvedChargeType: ErrorChargeType;
   recoverableCents: number;
-  draftedDisputeText: string;
-  evidenceCitations: string[];
-  generatedAt: string;
+  draftedDisputeText: string; // ready-to-submit dispute body
+  evidenceCitations: string[]; // e.g. ["POS record for order 4472 shows 3 items dispatched"]
+  generatedAt: string; // ISO 8601
 }
 
 /**
@@ -69,9 +69,9 @@ export interface SubmissionResult {
 export interface DisputeOutcome {
   candidateId: string;
   outcome: "approved" | "denied" | "pending";
-  refundedCents: number;
+  refundedCents: number; // 0 if denied or pending
   adjudicatedAt?: string;
-  escalateToVoice: boolean;
+  escalateToVoice: boolean; // true if denied AND meritScore >= 70
 }
 
 /**
@@ -92,5 +92,5 @@ export interface VoiceCallRecord {
   recoveredCents?: number;
 }
 
-export * from "./constants.js";
-export * from "./fixtures.js";
+export * from "./constants";
+export * from "./fixtures";
