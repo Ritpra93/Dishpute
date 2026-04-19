@@ -1,6 +1,6 @@
 import { Router, raw } from "express";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
-import { upsertVoiceCall } from "../db";
+import { upsertVoiceCall, getCandidateWithClassification } from "../db";
 import { config } from "../config";
 
 const router = Router();
@@ -66,6 +66,16 @@ router.post(
           timeInCallSecs: t.time_in_call_secs,
         }));
 
+        // When the agent recovers the charge on-call, roll the classification's
+        // recoverable_cents into voice_calls so computeStats() can sum it into
+        // totalRealizedCents. Previously this wrote NULL — the "Realized" tile
+        // never ticked up from voice recoveries.
+        let recoveredCents = 0;
+        if (callOutcome === "recovered") {
+          const row = getCandidateWithClassification(candidateId);
+          recoveredCents = row?.recoverable_cents ?? 0;
+        }
+
         upsertVoiceCall({
           candidateId,
           elevenLabsConversationId: conversation_id,
@@ -76,7 +86,7 @@ router.post(
             ? JSON.stringify(transcriptNormalised)
             : undefined,
           callOutcome,
-          recoveredCents: callOutcome === "recovered" ? undefined : 0,
+          recoveredCents,
         });
 
         console.log(

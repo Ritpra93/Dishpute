@@ -110,6 +110,7 @@ export function DashboardClient({ initialDisputes, initialStats }: Props) {
   const onEscalate = useCallback(
     async (id: string) => {
       setEscalatingId(id);
+      setActiveId(id);
       try {
         await fetch(`/api/disputes/${id}/escalate`, {
           method: "POST",

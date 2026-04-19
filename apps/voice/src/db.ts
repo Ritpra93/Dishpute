@@ -26,6 +26,54 @@ export function getDb(): Database.Database {
   return db;
 }
 
+export interface VoiceCallRow {
+  candidate_id: string;
+  eleven_labs_conversation_id: string;
+  twilio_call_sid: string;
+  started_at: string;
+  ended_at: string | null;
+  transcript_json: string | null;
+  call_outcome: string | null;
+  recovered_cents: number | null;
+}
+
+export function listVoiceCalls(): VoiceCallRow[] {
+  return getDb()
+    .prepare(`SELECT * FROM voice_calls ORDER BY started_at DESC`)
+    .all() as VoiceCallRow[];
+}
+
+export function getLatestVoiceCall(candidateId: string): VoiceCallRow | undefined {
+  return getDb()
+    .prepare(
+      `SELECT * FROM voice_calls WHERE candidate_id = ?
+       ORDER BY started_at DESC LIMIT 1`
+    )
+    .get(candidateId) as VoiceCallRow | undefined;
+}
+
+export interface CandidateLookupRow {
+  charge_amount_cents: number;
+  charge_type: string;
+  recoverable_cents: number | null;
+  reasoning: string | null;
+  drafted_dispute_text: string | null;
+}
+
+export function getCandidateWithClassification(
+  candidateId: string
+): CandidateLookupRow | undefined {
+  return getDb()
+    .prepare(
+      `SELECT dc.charge_amount_cents, dc.charge_type,
+              cl.recoverable_cents, cl.reasoning, cl.drafted_dispute_text
+       FROM dispute_candidates dc
+       LEFT JOIN classifications cl ON cl.candidate_id = dc.id
+       WHERE dc.id = ?`
+    )
+    .get(candidateId) as CandidateLookupRow | undefined;
+}
+
 export function upsertVoiceCall(record: {
   candidateId: string;
   elevenLabsConversationId: string;
