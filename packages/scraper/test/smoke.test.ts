@@ -1,5 +1,11 @@
 import { describe, it, expect, afterEach, beforeEach } from "vitest";
-import { createMockScraper, createScraper, DEMO_OUTCOMES_SUMMARY } from "../src/index";
+import {
+  createMockScraper,
+  createScraper,
+  DEMO_APPROVED_IDS,
+  DEMO_DENIED_IDS,
+  DEMO_OUTCOMES_SUMMARY,
+} from "../src/index";
 
 describe("createMockScraper", () => {
   it("listOpenDisputes returns 30 records", async () => {
@@ -26,7 +32,7 @@ describe("createMockScraper", () => {
     }
   });
 
-  it("fixture has correct charge-type distribution", async () => {
+  it("fixture has correct charge-type distribution (matches packages/types/CLAUDE.md spec)", async () => {
     const scraper = createMockScraper({ latencyMs: 0 });
     const disputes = await scraper.listOpenDisputes({ merchantId: "merchant_hoc", platform: "doordash" });
 
@@ -55,32 +61,31 @@ describe("createMockScraper", () => {
     expect(result.submittedAt).toBeTruthy();
   });
 
-  it("scrapeOutcomes returns correct outcomes for known IDs", async () => {
+  it("scrapeOutcomes returns correct outcomes for the three canonical demo IDs", async () => {
     const scraper = createMockScraper({ latencyMs: 0 });
     const outcomes = await scraper.scrapeOutcomes({
-      candidateIds: ["dc_001", "dc_022", "dc_023"],
+      candidateIds: ["disp_0001", "disp_0008", "disp_0014"],
     });
 
     expect(outcomes).toHaveLength(3);
-
     const byId = Object.fromEntries(outcomes.map((o) => [o.candidateId, o]));
 
-    // dc_001 is missing_item — approved with full refund
-    expect(byId["dc_001"]?.outcome).toBe("approved");
-    expect(byId["dc_001"]?.refundedCents).toBe(1499);
+    // disp_0001 — the demo's hero approved dispute (order 4472)
+    expect(byId["disp_0001"]?.outcome).toBe("approved");
+    expect(byId["disp_0001"]?.refundedCents).toBe(5390);
 
-    // dc_022 is the denied cold_food case — triggers voice escalation in the demo
-    expect(byId["dc_022"]?.outcome).toBe("denied");
-    expect(byId["dc_022"]?.refundedCents).toBe(0);
+    // disp_0008 — denied, one of three voice-escalation candidates
+    expect(byId["disp_0008"]?.outcome).toBe("denied");
+    expect(byId["disp_0008"]?.refundedCents).toBe(0);
 
-    // dc_023 is pending cold_food
-    expect(byId["dc_023"]?.outcome).toBe("pending");
-    expect(byId["dc_023"]?.refundedCents).toBe(0);
+    // disp_0014 — human-review tier, never submitted → pending fallback
+    expect(byId["disp_0014"]?.outcome).toBe("pending");
+    expect(byId["disp_0014"]?.refundedCents).toBe(0);
   });
 
   it("scrapeOutcomes returns all 30 fixture IDs with correct demo distribution", async () => {
     const scraper = createMockScraper({ latencyMs: 0 });
-    const allIds = Array.from({ length: 30 }, (_, i) => `dc_${String(i + 1).padStart(3, "0")}`);
+    const allIds = Array.from({ length: 30 }, (_, i) => `disp_${String(i + 1).padStart(4, "0")}`);
     const outcomes = await scraper.scrapeOutcomes({ candidateIds: allIds });
 
     expect(outcomes).toHaveLength(30);
@@ -92,15 +97,16 @@ describe("createMockScraper", () => {
       recoveredCents += o.refundedCents;
     }
 
-    expect(counts["approved"]).toBe(22);
-    expect(counts["denied"]).toBe(1);
-    expect(counts["pending"]).toBe(7);
-    expect(recoveredCents).toBe(42878); // $428.78
+    // 3 approved (demo hero set) + 3 denied (escalation candidates) + 24 pending (16 high-merit in-flight + 8 skip/human-review fallback)
+    expect(counts["approved"]).toBe(3);
+    expect(counts["denied"]).toBe(3);
+    expect(counts["pending"]).toBe(24);
+    expect(recoveredCents).toBe(21190); // $211.90 already recovered — matches sum of 3 approved recoverableCents
   });
 
   it("scrapeOutcomes falls back to pending for unknown IDs", async () => {
     const scraper = createMockScraper({ latencyMs: 0 });
-    const outcomes = await scraper.scrapeOutcomes({ candidateIds: ["dc_999"] });
+    const outcomes = await scraper.scrapeOutcomes({ candidateIds: ["disp_9999"] });
 
     expect(outcomes).toHaveLength(1);
     expect(outcomes[0]?.outcome).toBe("pending");
@@ -108,10 +114,15 @@ describe("createMockScraper", () => {
   });
 
   it("DEMO_OUTCOMES_SUMMARY totals are consistent", () => {
-    expect(DEMO_OUTCOMES_SUMMARY.totalApproved).toBe(22);
-    expect(DEMO_OUTCOMES_SUMMARY.totalDenied).toBe(1);
-    expect(DEMO_OUTCOMES_SUMMARY.totalPending).toBe(7);
-    expect(DEMO_OUTCOMES_SUMMARY.totalRecoveredCents).toBe(42878);
+    expect(DEMO_OUTCOMES_SUMMARY.totalApproved).toBe(3);
+    expect(DEMO_OUTCOMES_SUMMARY.totalDenied).toBe(3);
+    expect(DEMO_OUTCOMES_SUMMARY.totalPending).toBe(16);
+    expect(DEMO_OUTCOMES_SUMMARY.totalRecoveredCents).toBe(21190);
+  });
+
+  it("exported DEMO_APPROVED_IDS and DEMO_DENIED_IDS are the canonical 3+3 sets", () => {
+    expect([...DEMO_APPROVED_IDS]).toEqual(["disp_0001", "disp_0004", "disp_0011"]);
+    expect([...DEMO_DENIED_IDS]).toEqual(["disp_0008", "disp_0017", "disp_0023"]);
   });
 });
 
@@ -140,7 +151,7 @@ describe("createScraper SCRAPER_MODE=cache", () => {
 
   it("scrapeOutcomes returns demo outcomes (not all-pending)", async () => {
     const scraper = createScraper({ tinyFishApiKey: "dummy" });
-    const allIds = Array.from({ length: 30 }, (_, i) => `dc_${String(i + 1).padStart(3, "0")}`);
+    const allIds = Array.from({ length: 30 }, (_, i) => `disp_${String(i + 1).padStart(4, "0")}`);
     const outcomes = await scraper.scrapeOutcomes({ candidateIds: allIds });
 
     const counts: Record<string, number> = { approved: 0, denied: 0, pending: 0 };
@@ -149,8 +160,8 @@ describe("createScraper SCRAPER_MODE=cache", () => {
     }
 
     // Must match DEMO_OUTCOMES — not all-pending
-    expect(counts["approved"]).toBe(22);
-    expect(counts["denied"]).toBe(1);
-    expect(counts["pending"]).toBe(7);
+    expect(counts["approved"]).toBe(3);
+    expect(counts["denied"]).toBe(3);
+    expect(counts["pending"]).toBe(24);
   });
 });

@@ -1,32 +1,40 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { createMockScraper } from "@/lib/mock-scraper";
 import { createMockClassifier } from "@/lib/mock-classifier";
+import { parseJson } from "@/lib/parse-request";
 import {
   resetAllTables,
   upsertCandidate,
   upsertClassification,
 } from "@/lib/repo";
-import { DEMO_MERCHANT, type Platform } from "@/lib/types";
+import { DEMO_MERCHANT } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-interface ScanRequest {
-  platform?: Platform;
-  reset?: boolean;
-}
+const ScanRequestSchema = z.object({
+  platform: z.literal("doordash").optional(),
+  reset: z.boolean().optional(),
+});
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => ({}))) as ScanRequest;
-  const platform = body.platform ?? "doordash";
+  const parsed = await parseJson(request, ScanRequestSchema);
+  if (!parsed.ok) return parsed.response;
 
-  if (platform !== "doordash") {
-    return NextResponse.json(
-      { error: `Only doordash is supported in the demo. Got ${platform}.` },
-      { status: 400 }
-    );
+  const platform = parsed.data.platform ?? "doordash";
+
+  if (parsed.data.reset) {
+    if (process.env["ALLOW_DESTRUCTIVE_RESET"] !== "1") {
+      return NextResponse.json(
+        {
+          error:
+            "Destructive reset is disabled. Use `pnpm seed` locally, or set ALLOW_DESTRUCTIVE_RESET=1 to enable this endpoint.",
+        },
+        { status: 403 }
+      );
+    }
+    resetAllTables();
   }
-
-  if (body.reset) resetAllTables();
 
   const scraper = createMockScraper({ latencyMs: 800 });
   const classifier = createMockClassifier({ latencyMs: 0 });

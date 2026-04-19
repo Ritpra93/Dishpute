@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { z } from "zod";
+import { parseJson } from "@/lib/parse-request";
 
 export const dynamic = "force-dynamic";
 
-interface OnboardingRequest {
-  email?: string;
-  businessName?: string;
-}
+const OnboardingRequestSchema = z.object({
+  email: z.string().email().max(254).optional(),
+  businessName: z.string().max(200).optional(),
+});
 
 /**
  * Stripe Connect onboarding link generator.
@@ -19,9 +21,11 @@ interface OnboardingRequest {
  */
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => ({}))) as OnboardingRequest;
-  const email = body.email ?? "demo@houseofcurry.com";
-  const businessName = body.businessName ?? "House of Curry";
+  const parsed = await parseJson(request, OnboardingRequestSchema);
+  if (!parsed.ok) return parsed.response;
+
+  const email = parsed.data.email ?? "demo@houseofcurry.com";
+  const businessName = parsed.data.businessName ?? "House of Curry";
 
   const secret = process.env.STRIPE_SECRET_KEY;
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -59,12 +63,12 @@ export async function POST(request: Request) {
       accountId: account.id,
     });
   } catch (err) {
+    console.error("[stripe/onboarding] account creation failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return NextResponse.json(
-      {
-        mode: "error",
-        error: err instanceof Error ? err.message : String(err),
-      },
-      { status: 500 }
+      { error: "Stripe onboarding failed" },
+      { status: 502 }
     );
   }
 }

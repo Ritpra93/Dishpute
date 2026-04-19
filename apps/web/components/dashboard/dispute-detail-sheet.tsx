@@ -35,12 +35,22 @@ interface VoiceCallStatus {
   transcript: Array<{ role: string; message: string; timeInCallSecs: number }> | null;
 }
 
-const VOICE_URL = process.env["NEXT_PUBLIC_VOICE_URL"] ?? "http://localhost:4000";
+const VOICE_URL =
+  process.env["NEXT_PUBLIC_VOICE_URL"] ?? "http://localhost:4000";
 
 const CALL_OUTCOME_LABEL: Record<string, string> = {
   recovered: "Recovered on call",
   still_denied: "Still denied — escalation logged",
   callback_requested: "Callback requested",
+};
+
+const CHARGE_TYPE_LABEL: Record<string, string> = {
+  missing_item: "Missing item",
+  wrong_item: "Wrong item",
+  cold_food: "Cold food",
+  order_never_arrived: "Not delivered",
+  customer_cancel: "Customer cancel",
+  unknown: "Other",
 };
 
 function useVoiceCallStatus(
@@ -68,7 +78,7 @@ function useVoiceCallStatus(
           setStatus((await res.json()) as VoiceCallStatus);
         }
       } catch {
-        // Voice server not running — UI stays in the "no call yet" state.
+        // Voice server not running — UI just stays in the "no call yet" state.
       }
     };
 
@@ -90,13 +100,11 @@ export function DisputeDetailSheet({
   onEscalate,
   isEscalating,
 }: Props) {
-  const [callStarted, setCallStarted] = useState(false);
   const escalateToVoice = dispute?.outcome?.escalateToVoice ?? false;
   const voiceStatus = useVoiceCallStatus(
     dispute?.id ?? null,
     open && escalateToVoice
   );
-
   if (!dispute) return null;
   const c = dispute.classification;
   const isDenied = dispute.outcome?.outcome === "denied";
@@ -283,13 +291,89 @@ export function DisputeDetailSheet({
               )}
             </div>
           )}
+
+          {escalateToVoice && (
+            <Section label="Voice call">
+              <VoiceCallPanel
+                status={voiceStatus}
+                awaitingStart={isEscalating || (!voiceStatus && escalateToVoice)}
+              />
+            </Section>
+          )}
         </div>
       </SheetContent>
     </Sheet>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function VoiceCallPanel({
+  status,
+  awaitingStart,
+}: {
+  status: VoiceCallStatus | null;
+  awaitingStart: boolean;
+}) {
+  if (!status) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        {awaitingStart
+          ? "Dialing DoorDash support…"
+          : "No call placed yet. Click escalate above to dial."}
+      </p>
+    );
+  }
+
+  const finished = status.callOutcome !== null;
+  const outcomeLabel = status.callOutcome
+    ? CALL_OUTCOME_LABEL[status.callOutcome] ?? status.callOutcome
+    : null;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">
+          {finished
+            ? `Ended · ${relativeTime(status.endedAt ?? status.startedAt)}`
+            : "Live call in progress"}
+        </span>
+        {outcomeLabel && (
+          <Badge variant={status.callOutcome === "recovered" ? "money" : "warning"}>
+            {outcomeLabel}
+          </Badge>
+        )}
+      </div>
+
+      {status.callOutcome === "recovered" && status.recoveredCents !== null && (
+        <p className="text-sm">
+          Recovered{" "}
+          <span className="font-semibold tabular-nums text-money">
+            {formatCentsPrecise(status.recoveredCents)}
+          </span>{" "}
+          on this call.
+        </p>
+      )}
+
+      {status.transcript && status.transcript.length > 0 && (
+        <ol className="space-y-2 border-l border-border pl-4 text-sm">
+          {status.transcript.map((turn, i) => (
+            <li key={i} className="flex flex-col gap-0.5">
+              <span className="text-xs uppercase tracking-wider text-muted-foreground">
+                {turn.role === "agent" ? "Counter agent" : "Support rep"} ·{" "}
+                <span className="tabular-nums">
+                  {Math.floor(turn.timeInCallSecs / 60)}:
+                  {(turn.timeInCallSecs % 60).toString().padStart(2, "0")}
+                </span>
+              </span>
+              <span>{turn.message}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <section>
       <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
