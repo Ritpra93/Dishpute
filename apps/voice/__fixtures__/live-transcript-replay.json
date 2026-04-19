@@ -1,0 +1,110 @@
+[
+  {
+    "status": "in-progress",
+    "transcript": [
+      { "role": "agent", "message": "Hi, this is an automated agent calling on behalf of House of Curry. I'd like to discuss dispute case 31188 that was denied this morning.", "time_in_call_secs": 2 }
+    ],
+    "callDurationSecs": 5,
+    "hasAudio": false
+  },
+  {
+    "status": "in-progress",
+    "transcript": [
+      { "role": "agent", "message": "Hi, this is an automated agent calling on behalf of House of Curry. I'd like to discuss dispute case 31188 that was denied this morning.", "time_in_call_secs": 2 },
+      { "role": "user", "message": "Sure, let me pull that up. Can you give me the case number again?", "time_in_call_secs": 9 }
+    ],
+    "callDurationSecs": 12,
+    "hasAudio": false
+  },
+  {
+    "status": "in-progress",
+    "transcript": [
+      { "role": "agent", "message": "Hi, this is an automated agent calling on behalf of House of Curry. I'd like to discuss dispute case 31188 that was denied this morning.", "time_in_call_secs": 2 },
+      { "role": "user", "message": "Sure, let me pull that up. Can you give me the case number again?", "time_in_call_secs": 9 },
+      { "role": "agent", "message": "Of course. The case number is 31188.", "time_in_call_secs": 14 }
+    ],
+    "callDurationSecs": 17,
+    "hasAudio": false
+  },
+  {
+    "status": "in-progress",
+    "transcript": [
+      { "role": "agent", "message": "Hi, this is an automated agent calling on behalf of House of Curry. I'd like to discuss dispute case 31188 that was denied this morning.", "time_in_call_secs": 2 },
+      { "role": "user", "message": "Sure, let me pull that up. Can you give me the case number again?", "time_in_call_secs": 9 },
+      { "role": "agent", "message": "Of course. The case number is 31188.", "time_in_call_secs": 14 },
+      { "role": "user", "message": "Okay, I see it. The denial was based on insufficient evidence — no courier photo was provided.", "time_in_call_secs": 22 }
+    ],
+    "callDurationSecs": 25,
+    "hasAudio": false
+  },
+  {
+    "status": "in-progress",
+    "transcript": [
+      { "role": "agent", "message": "Hi, this is an automated agent calling on behalf of House of Curry. I'd like to discuss dispute case 31188 that was denied this morning.", "time_in_call_secs": 2 },
+      { "role": "user", "message": "Sure, let me pull that up. Can you give me the case number again?", "time_in_call_secs": 9 },
+      { "role": "agent", "message": "Of course. The case number is 31188.", "time_in_call_secs": 14 },
+      { "role": "user", "message": "Okay, I see it. The denial was based on insufficient evidence — no courier photo was provided.", "time_in_call_secs": 22 },
+      { "role": "agent", "message": "We actually have a timestamped handoff photo at 7:38 PM showing all four items bagged and handed to the courier. We also have the KDS log confirming the ticket was completed at 7:34 PM with all items checked off.", "time_in_call_secs": 28 }
+    ],
+    "callDurationSecs": 38,
+    "hasAudio": false
+  },
+  {
+    "status": "in-progress",
+    "transcript": [
+      { "role": "agent", "message": "Hi, this is an automated agent calling on behalf of House of Curry. I'd like to discuss dispute case 31188 that was denied this morning.", "time_in_call_secs": 2 },
+      { "role": "user", "message": "Sure, let me pull that up. Can you give me the case number again?", "time_in_call_secs": 9 },
+      { "role": "agent", "message": "Of course. The case number is 31188.", "time_in_call_secs": 14 },
+      { "role": "user", "message": "Okay, I see it. The denial was based on insufficient evidence — no courier photo was provided.", "time_in_call_secs": 22 },
+      { "role": "agent", "message": "We actually have a timestamped handoff photo at 7:38 PM showing all four items bagged and handed to the courier. We also have the KDS log confirming the ticket was completed at 7:34 PM with all items checked off.", "time_in_call_secs": 28 },
+      { "role": "user", "message": "That does look like it was a courier-side issue. Let me escalate this to my supervisor for a full review.", "time_in_call_secs": 42 }
+    ],
+    "callDurationSecs": 45,
+    "hasAudio": false
+  },
+  {
+    "status": "in-progress",
+    "transcript": [
+      { "role": "agent", "message": "Hi, this is an automated agent calling on behalf of House of Curry. I'd like to discuss dispute case 31188 that was denied this morning.", "time_in_call_secs": 2 },
+      { "role": "user", "message": "Sure, let me pull that up. Can you give me the case number again?", "time_in_call_secs": 9 },
+      { "role": "agent", "message": "Of course. The case number is 31188.", "time_in_call_secs": 14 },
+      { "role": "user", "message": "Okay, I see it. The denial was based on insufficient evidence — no courier photo was provided.", "time_in_call_secs": 22 },
+      { "role": "agent", "message": "We actually have a timestamped handoff photo at 7:38 PM showing all four items bagged and handed to the courier. We also have the KDS log confirming the ticket was completed at 7:34 PM with all items checked off.", "time_in_call_secs": 28 },
+      { "role": "user", "message": "That does look like it was a courier-side issue. Let me escalate this to my supervisor for a full review.", "time_in_call_secs": 42 },
+      { "role": "agent", "message": "Thank you. We're requesting a full reversal of the $42.50 charge plus the courier liability flag so this doesn't count against the merchant's record.", "time_in_call_secs": 50 }
+    ],
+    "callDurationSecs": 55,
+    "hasAudio": false
+  },
+  {
+    "status": "in-progress",
+    "transcript": [
+      { "role": "agent", "message": "Hi, this is an automated agent calling on behalf of House of Curry. I'd like to discuss dispute case 31188 that was denied this morning.", "time_in_call_secs": 2 },
+      { "role": "user", "message": "Sure, let me pull that up. Can you give me the case number again?", "time_in_call_secs": 9 },
+      { "role": "agent", "message": "Of course. The case number is 31188.", "time_in_call_secs": 14 },
+      { "role": "user", "message": "Okay, I see it. The denial was based on insufficient evidence — no courier photo was provided.", "time_in_call_secs": 22 },
+      { "role": "agent", "message": "We actually have a timestamped handoff photo at 7:38 PM showing all four items bagged and handed to the courier. We also have the KDS log confirming the ticket was completed at 7:34 PM with all items checked off.", "time_in_call_secs": 28 },
+      { "role": "user", "message": "That does look like it was a courier-side issue. Let me escalate this to my supervisor for a full review.", "time_in_call_secs": 42 },
+      { "role": "agent", "message": "Thank you. We're requesting a full reversal of the $42.50 charge plus the courier liability flag so this doesn't count against the merchant's record.", "time_in_call_secs": 50 },
+      { "role": "user", "message": "I've approved the reversal. The $42.50 credit will appear within 2 business days. Is there anything else I can help with?", "time_in_call_secs": 62 }
+    ],
+    "callDurationSecs": 65,
+    "hasAudio": false
+  },
+  {
+    "status": "done",
+    "transcript": [
+      { "role": "agent", "message": "Hi, this is an automated agent calling on behalf of House of Curry. I'd like to discuss dispute case 31188 that was denied this morning.", "time_in_call_secs": 2 },
+      { "role": "user", "message": "Sure, let me pull that up. Can you give me the case number again?", "time_in_call_secs": 9 },
+      { "role": "agent", "message": "Of course. The case number is 31188.", "time_in_call_secs": 14 },
+      { "role": "user", "message": "Okay, I see it. The denial was based on insufficient evidence — no courier photo was provided.", "time_in_call_secs": 22 },
+      { "role": "agent", "message": "We actually have a timestamped handoff photo at 7:38 PM showing all four items bagged and handed to the courier. We also have the KDS log confirming the ticket was completed at 7:34 PM with all items checked off.", "time_in_call_secs": 28 },
+      { "role": "user", "message": "That does look like it was a courier-side issue. Let me escalate this to my supervisor for a full review.", "time_in_call_secs": 42 },
+      { "role": "agent", "message": "Thank you. We're requesting a full reversal of the $42.50 charge plus the courier liability flag so this doesn't count against the merchant's record.", "time_in_call_secs": 50 },
+      { "role": "user", "message": "I've approved the reversal. The $42.50 credit will appear within 2 business days. Is there anything else I can help with?", "time_in_call_secs": 62 },
+      { "role": "agent", "message": "That's everything. Thank you for your time and for resolving this so quickly. Have a great day.", "time_in_call_secs": 68 }
+    ],
+    "callDurationSecs": 72,
+    "hasAudio": true
+  }
+]

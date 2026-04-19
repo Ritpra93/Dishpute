@@ -1,14 +1,18 @@
 import { Router } from "express";
 import { z } from "zod";
-import { initiateOutboundCall } from "../elevenlabs";
+import { initiateOutboundCall, fetchConversationDetail } from "../elevenlabs";
 import {
   listVoiceCalls,
   getLatestVoiceCall,
+  getAudioPath,
   type VoiceCallRow,
 } from "../db";
+import { readAudioStream, AudioNotFoundError } from "../audio-storage";
 import type { VoiceCallRecord } from "../types";
 import { requireSharedSecret } from "../middleware/auth";
 import { outboundLimiter } from "../middleware/rate-limit";
+import fs from "node:fs";
+import path from "node:path";
 
 const router = Router();
 
@@ -29,6 +33,8 @@ function rowToJson(row: VoiceCallRow) {
     endedAt: row.ended_at,
     callOutcome: row.call_outcome,
     recoveredCents: row.recovered_cents,
+    audioPath: row.audio_path,
+    audioFetchedAt: row.audio_fetched_at,
     transcript,
   };
 }
@@ -150,6 +156,85 @@ router.get("/calls/status/:candidateId", (req, res) => {
     return;
   }
   res.json(rowToJson(row));
+});
+
+// ---------------------------------------------------------------------------
+// Worker 5: Serve stored MP3 audio for a conversation.
+// No auth — same justification as /calls/status/:candidateId above.
+// CORS is the defense (locked to WEB_ORIGIN in server.ts).
+// ---------------------------------------------------------------------------
+const CONV_ID_RE = /^[A-Za-z0-9_-]{8,128}$/;
+
+router.get("/calls/:conversationId/audio", (req, res) => {
+  const { conversationId } = req.params;
+  if (!CONV_ID_RE.test(conversationId)) {
+    res.status(400).json({ error: "invalid_conversation_id" });
+    return;
+  }
+
+  const storedPath = getAudioPath(conversationId);
+  if (!storedPath) {
+    res.status(404).json({ error: "audio_not_ready" });
+    return;
+  }
+
+  res.setHeader("Content-Type", "audio/mpeg");
+  res.setHeader("Cache-Control", "private, max-age=3600");
+  try {
+    readAudioStream(conversationId).pipe(res);
+  } catch (err) {
+    if (err instanceof AudioNotFoundError) {
+      res.status(404).json({ error: "audio_not_ready" });
+    } else {
+      throw err;
+    }
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Worker 5: Live transcript for an in-progress call.
+// Returns ElevenLabs's current view. The web app wraps this in an SSE loop.
+// ---------------------------------------------------------------------------
+router.get("/calls/:conversationId/live-transcript", async (req, res) => {
+  const { conversationId } = req.params;
+  if (!CONV_ID_RE.test(conversationId)) {
+    res.status(400).json({ error: "invalid_conversation_id" });
+    return;
+  }
+
+  // Fixture mode: replay canned transcript for demo safety
+  if (process.env["CALLS_LIVE_FIXTURE"] === "on") {
+    try {
+      const fixturePath = path.join(
+        __dirname,
+        "../../__fixtures__/live-transcript-replay.json"
+      );
+      const snapshots = JSON.parse(fs.readFileSync(fixturePath, "utf-8"));
+      // Return the last snapshot (caller polls repeatedly; each poll gets
+      // progressively more turns via the fixture's growing arrays)
+      const idx = Math.min(
+        Math.floor((Date.now() / 2000) % snapshots.length),
+        snapshots.length - 1
+      );
+      res.json(snapshots[idx]);
+      return;
+    } catch (err) {
+      console.warn("[live-transcript] fixture mode failed, falling through:", err);
+    }
+  }
+
+  try {
+    const detail = await fetchConversationDetail(conversationId);
+    res.json({
+      status: detail.status,
+      transcript: detail.transcript,
+      callDurationSecs: detail.metadata?.call_duration_secs ?? 0,
+      hasAudio: detail.has_audio ?? false,
+    });
+  } catch (err) {
+    console.error("[live-transcript]", err);
+    res.status(502).json({ error: "upstream_failed" });
+  }
 });
 
 export default router;

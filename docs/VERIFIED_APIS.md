@@ -273,6 +273,76 @@ app.post("/webhooks/elevenlabs/post-call",
 - 4xx is NOT retried (unlike 5xx); HIPAA accounts get zero retries either way
 - Webhook IPs for firewall allowlisting: US default `34.67.146.145`, `34.59.11.47`
 
+### GET /v1/convai/conversations/:conversation_id
+
+Fetch the current state of a conversation, including transcript turns. Used for live polling during an in-progress call.
+
+**Path parameters:**
+- `conversation_id` (string, required)
+
+**Headers:**
+- `xi-api-key: <key>`
+
+**Response:** JSON
+```json
+{
+  "conversation_id": "...",
+  "agent_id": "...",
+  "status": "initiated" | "in-progress" | "processing" | "done" | "failed",
+  "has_audio": true,
+  "has_user_audio": true,
+  "has_response_audio": true,
+  "transcript": [
+    {
+      "role": "agent" | "user" | "tool",
+      "message": "...",
+      "time_in_call_secs": 0,
+      "tool_calls": [],
+      "tool_results": []
+    }
+  ],
+  "metadata": { "call_duration_secs": 45, "termination_reason": "..." },
+  "analysis": { "call_successful": "success" | "failure" | "unknown", "transcript_summary": "..." }
+}
+```
+
+**Notes:**
+- Poll at most every 2s during a live call to avoid rate limits.
+- Terminal states are `done` and `failed`; `initiated`, `in-progress`, and `processing` are all non-terminal — keep polling.
+- Use `has_audio === true` as the signal that audio is ready to fetch from `/audio` — avoids retry-on-error loops.
+- The post-call webhook is the authoritative source for final state — the polling endpoint may lag by a few seconds.
+
+### GET /v1/convai/conversations/:conversation_id/audio
+
+Download the full MP3 recording of a completed conversation.
+
+**Path parameters:**
+- `conversation_id` (string, required)
+
+**Headers:**
+- `xi-api-key: <key>`
+
+**Response:** binary (`audio/mpeg`)
+
+**Notes:**
+- Only populated if the call was started with `call_recording_enabled: true` (already set in `apps/voice/src/elevenlabs.ts`).
+- Returns raw audio bytes, not JSON. Use `await res.arrayBuffer()` then wrap in `new Uint8Array(buf)`.
+- Docs only document `422` (invalid request); no explicit "not ready yet" code is listed. Gate fetch attempts on `has_audio === true` from the detail endpoint instead of catching error codes.
+- Audio is typically not yet available immediately after the post-call webhook fires; budget ~15s for it to land.
+
+```typescript
+export async function fetchConversationAudio(conversationId: string): Promise<Uint8Array> {
+  const res = await fetch(
+    `https://api.elevenlabs.io/v1/convai/conversations/${conversationId}/audio`,
+    { headers: { "xi-api-key": process.env.ELEVENLABS_API_KEY! } }
+  );
+  if (!res.ok) throw new Error(`audio fetch failed: ${res.status} ${await res.text()}`);
+  return new Uint8Array(await res.arrayBuffer());
+}
+```
+
+**Sources:** https://elevenlabs.io/docs/api-reference/conversations/get-conversation-details, https://elevenlabs.io/docs/api-reference/conversations/get-conversation-audio
+
 **Sources:** https://elevenlabs.io/docs/api-reference/twilio/outbound-call, https://elevenlabs.io/docs/agents-platform/workflows/post-call-webhooks, https://elevenlabs.io/docs/agents-platform/customization/personalization/dynamic-variables
 
 ---
