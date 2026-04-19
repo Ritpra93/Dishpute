@@ -50,6 +50,18 @@ function fmtRelativeFromNow(iso: string): string {
   return `${Math.round(ago / 60)}h ago`;
 }
 
+/** Avoids hydration mismatch: `Date.now()` differs between SSR and client. */
+function RelativeFromNow({ iso }: { iso: string }) {
+  const [label, setLabel] = useState<string | null>(null);
+  useEffect(() => {
+    const tick = () => setLabel(fmtRelativeFromNow(iso));
+    tick();
+    const id = setInterval(tick, 30_000);
+    return () => clearInterval(id);
+  }, [iso]);
+  return <span className="tabular-nums">{label ?? "…"}</span>;
+}
+
 export function WarningsFeed({
   initial = [],
   live = true,
@@ -135,7 +147,7 @@ export function WarningsFeed({
                           <span className="capitalize">{w.platform}</span>
                           <span className="inline-flex items-center gap-1">
                             <Clock className="size-3" />
-                            {fmtRelativeFromNow(w.expectedAt)}
+                            <RelativeFromNow iso={w.expectedAt} />
                           </span>
                           {w.potentialChargeCents > 0 && (
                             <span className="font-mono tabular-nums text-foreground">
