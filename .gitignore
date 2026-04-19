@@ -33,6 +33,9 @@ pnpm-debug.log*
 # Claude Code local settings — DO NOT COMMIT (personal per-worker)
 .claude/settings.local.json
 
+# Internal "how it works" walkthrough — local-only, may reference real env layout
+HOW_IT_WORKS.md
+
 # OS
 .DS_Store
 Thumbs.db
