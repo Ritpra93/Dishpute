@@ -1,7 +1,13 @@
 import { Router } from "express";
 import { getCandidateWithClassification } from "../db";
+import { toolsLimiter } from "../middleware/rate-limit";
 
 const router = Router();
+
+// All tool routes are reachable by ElevenLabs from the cloud during a
+// conversation, so we can't gate them on a shared secret. Rate-limit per IP
+// instead — caps abuse without breaking the agent flow.
+router.use("/tools", toolsLimiter);
 
 // All tool endpoints must return 200 in under 1.5s — even on error.
 // ElevenLabs does NOT retry 4xx; a crash here = dead air on stage.

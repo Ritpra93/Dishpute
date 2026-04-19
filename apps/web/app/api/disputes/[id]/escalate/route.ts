@@ -54,14 +54,6 @@ export async function POST(
     );
   }
 
-  upsertOutcome({
-    candidateId: id,
-    outcome: "denied",
-    refundedCents: 0,
-    adjudicatedAt: new Date().toISOString(),
-    escalateToVoice: true,
-  });
-
   const caseNumber = caseNumberFromCandidate(id, candidate.orderId);
   const denialReason =
     parsed.data.reason ??
@@ -75,8 +67,20 @@ export async function POST(
     denialReason,
   };
 
+  // Stubbed mode keeps the original behavior: write the outcome immediately so
+  // the dashboard can show the "calling..." state during offline rehearsal.
+  // Live mode flips this — outcome is only written AFTER the voice service
+  // confirms the call started, so a failed upstream doesn't leave a phantom
+  // "escalated" row in the DB (security-review M2).
   const voiceUrl = process.env["VOICE_ESCALATE_URL"];
   if (!voiceUrl) {
+    upsertOutcome({
+      candidateId: id,
+      outcome: "denied",
+      refundedCents: 0,
+      adjudicatedAt: new Date().toISOString(),
+      escalateToVoice: true,
+    });
     return NextResponse.json({
       candidateId: id,
       mode: "stubbed",
@@ -88,10 +92,18 @@ export async function POST(
     });
   }
 
+  // Server-to-server header — apps/voice's requireSharedSecret middleware
+  // checks this when VOICE_SHARED_SECRET is set on both sides. Empty string
+  // when unset matches the middleware's permissive dev-mode behavior.
+  const sharedSecret = process.env["VOICE_SHARED_SECRET"] ?? "";
+
   try {
     const upstream = await fetch(voiceUrl, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        "x-counter-token": sharedSecret,
+      },
       body: JSON.stringify(voicePayload),
     });
     if (!upstream.ok) {
@@ -106,6 +118,15 @@ export async function POST(
       );
     }
     const data = await upstream.json();
+
+    upsertOutcome({
+      candidateId: id,
+      outcome: "denied",
+      refundedCents: 0,
+      adjudicatedAt: new Date().toISOString(),
+      escalateToVoice: true,
+    });
+
     return NextResponse.json({
       candidateId: id,
       mode: "live",

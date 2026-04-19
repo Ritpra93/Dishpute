@@ -11,7 +11,19 @@ import vantaRouter from "./routes/vanta";
 export function createApp(): Express {
   const app = express();
 
-  app.use(cors());
+  // express-rate-limit (and any future reverse-proxy logic) needs accurate
+  // req.ip when running behind ngrok / a load balancer. Trust one hop.
+  app.set("trust proxy", 1);
+
+  // Restrict CORS to the dashboard origin. WEB_ORIGIN comma-separated supports
+  // localhost during dev + the deployed dashboard in prod. Falling back to
+  // localhost:3000 keeps `pnpm dev:web` working out of the box; production
+  // deployments MUST set WEB_ORIGIN explicitly.
+  const webOrigins = (process.env["WEB_ORIGIN"] ?? "http://localhost:3000")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  app.use(cors({ origin: webOrigins, credentials: false }));
 
   // CRITICAL: mount the webhooks router BEFORE express.json() so the route's
   // own raw-body middleware can read the exact bytes for HMAC signature
