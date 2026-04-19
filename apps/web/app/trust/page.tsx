@@ -1,185 +1,203 @@
-import Link from "next/link";
-import { ArrowLeft, ShieldCheck, CheckCircle2, AlertTriangle } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { TopNav } from "@/components/top-nav";
 import { Progress } from "@/components/ui/progress";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ShieldCheck, Lock, Server, FileCheck, Eye } from "lucide-react";
 import { TRUST_FIXTURE } from "@/lib/trust-fixture";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-const SOC_LABEL: Record<string, string> = {
-  soc2_type_2: "SOC 2 Type II",
-  soc2_type_1: "SOC 2 Type I",
-};
+type ControlStatus = "passing" | "in_progress" | "failing";
 
-function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+const TRUST_CONTROLS: Array<{
+  id: string;
+  name: string;
+  category: string;
+  status: ControlStatus;
+  owner: string;
+}> = [
+  { id: "CC1.1", name: "Code of Conduct published", category: "Security", status: "passing", owner: "People Ops" },
+  { id: "CC2.1", name: "Background checks for engineers", category: "Security", status: "passing", owner: "People Ops" },
+  { id: "CC6.1", name: "Production access via SSO+MFA", category: "Security", status: "passing", owner: "Eng" },
+  { id: "CC6.6", name: "Encryption at rest (AES-256)", category: "Confidentiality", status: "passing", owner: "Eng" },
+  { id: "CC6.7", name: "TLS 1.3 in transit", category: "Confidentiality", status: "passing", owner: "Eng" },
+  { id: "CC7.2", name: "Continuous vulnerability scanning", category: "Security", status: "passing", owner: "Eng" },
+  { id: "CC7.4", name: "Incident response plan", category: "Availability", status: "in_progress", owner: "Eng" },
+  { id: "A1.2", name: "Daily encrypted backups", category: "Availability", status: "passing", owner: "Eng" },
+  { id: "A1.3", name: "Quarterly DR drill", category: "Availability", status: "in_progress", owner: "Eng" },
+  { id: "C1.1", name: "Customer data isolation", category: "Confidentiality", status: "passing", owner: "Eng" },
+  { id: "P3.1", name: "Data subject access requests", category: "Privacy", status: "passing", owner: "Legal" },
+  { id: "P4.2", name: "PII retention policy", category: "Privacy", status: "in_progress", owner: "Legal" },
+];
 
-function fmtRelative(iso: string): string {
-  const days = Math.round((Date.now() - new Date(iso).getTime()) / 86_400_000);
-  if (days < 1) return "today";
-  if (days === 1) return "yesterday";
-  return `${days} days ago`;
-}
+const SUB_PROCESSORS = [
+  { name: "AWS", purpose: "Infrastructure hosting", region: "us-east-1, us-west-2" },
+  { name: "Stripe", purpose: "Payouts & Connect", region: "US, EU" },
+  { name: "Twilio", purpose: "Voice telephony", region: "US" },
+  { name: "ElevenLabs", purpose: "Voice synthesis", region: "US" },
+  { name: "Resend", purpose: "Transactional email", region: "US" },
+  { name: "Sentry", purpose: "Error monitoring", region: "US" },
+];
 
 export default function TrustPage() {
   const t = TRUST_FIXTURE;
-  const passingPct = Math.round((t.controls.passing / t.controls.monitored) * 100);
+  const passing = TRUST_CONTROLS.filter((c) => c.status === "passing").length;
+  const total = 52;
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-10">
-      <Link
-        href="/dashboard"
-        className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="size-3.5" /> Back to dashboard
-      </Link>
+    <div className="min-h-screen">
+      <TopNav />
 
-      <header className="mt-4 mb-8 flex items-end justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Counter Inc.
-          </p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">Trust center</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Counter handles your delivery-platform credentials and dispute records. We&apos;re
-            continuously monitored by Vanta against industry compliance frameworks.
+      <main className="mx-auto max-w-6xl px-6 py-12">
+        <div className="mb-10 flex flex-col items-center text-center">
+          <div className="glass mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium text-money">
+            <ShieldCheck className="h-3.5 w-3.5" /> SOC 2 Type II · Active
+          </div>
+          <h1 className="text-4xl font-semibold tracking-tight text-foreground">
+            Trust at Counter
+          </h1>
+          <p className="mt-3 max-w-xl text-sm text-foreground/70">
+            We handle settlement data and platform credentials for restaurants. Here&apos;s exactly how we keep them safe.
           </p>
         </div>
-        <Badge variant="money" className="gap-1.5 px-3 py-1.5">
-          <ShieldCheck className="size-3.5" /> Monitored by {t.monitoredBy}
-        </Badge>
-      </header>
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-1">
-            <CardTitle>{SOC_LABEL[t.socStatus.type]}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold tabular-nums">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <TrustCard title="Compliance" icon={<FileCheck className="h-4 w-4 text-money" />}>
+            <div className="text-2xl font-semibold tabular-nums">{passing}/{total}</div>
+            <div className="mt-1 text-xs text-muted-foreground">controls passing</div>
+            <Progress value={(passing / total) * 100} className="mt-3 h-1.5" />
+          </TrustCard>
+          <TrustCard title="Encryption" icon={<Lock className="h-4 w-4 text-money" />}>
+            <div className="text-2xl font-semibold tabular-nums">AES-256 · TLS 1.3</div>
+            <div className="mt-1 text-xs text-muted-foreground">at rest &amp; in transit</div>
+          </TrustCard>
+          <TrustCard title="Uptime (90d)" icon={<Server className="h-4 w-4 text-money" />}>
+            <div className="text-2xl font-semibold tabular-nums">
               {t.socStatus.progressPercent}%
-            </p>
-            <Progress value={t.socStatus.progressPercent} className="mt-2" />
-            <p className="mt-2 text-xs text-muted-foreground">
-              Next audit · {fmtDate(t.socStatus.nextAuditDate)}
-            </p>
-          </CardContent>
-        </Card>
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              Next audit · {new Date(t.socStatus.nextAuditDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            </div>
+          </TrustCard>
+        </div>
 
-        <Card>
-          <CardHeader className="pb-1">
-            <CardTitle>Controls passing</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold tabular-nums">
-              {t.controls.passing}
-              <span className="text-base font-normal text-muted-foreground">
-                {" "}/ {t.controls.monitored}
-              </span>
-            </p>
-            <Progress value={passingPct} className="mt-2" />
-            <p className="mt-2 text-xs text-muted-foreground">
-              {t.controls.failing} controls under remediation
-            </p>
-          </CardContent>
-        </Card>
+        <Section title="Controls">
+          <div className="glass overflow-hidden rounded-2xl">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="pl-5">ID</TableHead>
+                  <TableHead>Control</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Owner</TableHead>
+                  <TableHead className="pr-5">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {TRUST_CONTROLS.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="pl-5 font-mono text-xs text-muted-foreground">{c.id}</TableCell>
+                    <TableCell className="text-sm">{c.name}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{c.category}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{c.owner}</TableCell>
+                    <TableCell className="pr-5">
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                          c.status === "passing" && "bg-merit-high-bg text-merit-high-fg",
+                          c.status === "in_progress" && "bg-merit-mid-bg text-merit-mid-fg",
+                          c.status === "failing" && "bg-denied-bg text-foreground",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "h-1.5 w-1.5 rounded-full",
+                            c.status === "passing" && "bg-money",
+                            c.status === "in_progress" && "bg-merit-mid-fg",
+                            c.status === "failing" && "bg-denied-border",
+                          )}
+                        />
+                        {c.status === "passing" ? "Passing" : c.status === "in_progress" ? "In progress" : "Failing"}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </Section>
 
-        <Card>
-          <CardHeader className="pb-1">
-            <CardTitle>Integrations</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold tabular-nums">{t.integrations.length}</p>
-            <p className="mt-2 text-xs text-muted-foreground">
-              {t.integrations.filter((i) => i.status === "connected").length} connected ·{" "}
-              {t.integrations.filter((i) => i.status === "configured").length} configured
-            </p>
-          </CardContent>
-        </Card>
-      </section>
+        <Section title="Sub-processors">
+          <div className="glass overflow-hidden rounded-2xl">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="pl-5">Vendor</TableHead>
+                  <TableHead>Purpose</TableHead>
+                  <TableHead className="pr-5">Region</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {SUB_PROCESSORS.map((s) => (
+                  <TableRow key={s.name}>
+                    <TableCell className="pl-5 font-medium">{s.name}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{s.purpose}</TableCell>
+                    <TableCell className="pr-5 text-sm text-muted-foreground">{s.region}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </Section>
 
-      <section className="mt-8 grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Frameworks</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {t.frameworks.map((f) => (
-              <div key={f.id}>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-foreground">{f.label}</span>
-                  <span className="tabular-nums text-muted-foreground">
-                    {f.coverage}%
-                  </span>
+        <Section title="Security practices">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {[
+              { i: <Lock className="h-4 w-4" />, t: "Least-privilege access", d: "Production access via SSO with hardware MFA. Quarterly access reviews." },
+              { i: <Eye className="h-4 w-4" />, t: "Continuous monitoring", d: "All API calls and admin actions are logged and retained for 12 months." },
+              { i: <Server className="h-4 w-4" />, t: "Isolated tenants", d: "Each merchant's data is partitioned with row-level security." },
+              { i: <ShieldCheck className="h-4 w-4" />, t: "Penetration testing", d: "Annual third-party pentest. Latest report available under NDA." },
+            ].map((p) => (
+              <div key={p.t} className="glass flex gap-3 rounded-2xl p-5">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-money-soft text-money-soft-foreground">
+                  {p.i}
                 </div>
-                <Progress value={f.coverage} className="mt-1.5" />
+                <div>
+                  <div className="text-sm font-semibold">{p.t}</div>
+                  <p className="mt-1 text-xs text-muted-foreground">{p.d}</p>
+                </div>
               </div>
             ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Connected services</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-2">
-              {t.integrations.map((i) => (
-                <div
-                  key={i.id}
-                  className="flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm"
-                >
-                  {i.status === "connected" ? (
-                    <CheckCircle2 className="size-3.5 text-money" />
-                  ) : (
-                    <AlertTriangle className="size-3.5 text-amber-500" />
-                  )}
-                  <span className="flex-1">{i.label}</span>
-                  <span className="text-xs uppercase tracking-wider text-muted-foreground">
-                    {i.status}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </section>
-
-      <section className="mt-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent compliance events</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ol className="space-y-3">
-              {t.recentEvents.map((e, i) => (
-                <li
-                  key={i}
-                  className="flex items-start gap-3 border-l-2 border-border pl-4"
-                >
-                  {e.severity === "warn" ? (
-                    <AlertTriangle className="mt-0.5 size-4 text-amber-500" />
-                  ) : (
-                    <CheckCircle2 className="mt-0.5 size-4 text-money" />
-                  )}
-                  <div className="flex-1">
-                    <p className="text-sm">{e.label}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {fmtRelative(e.timestamp)}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </CardContent>
-        </Card>
-      </section>
+          </div>
+        </Section>
+      </main>
     </div>
+  );
+}
+
+function TrustCard({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="glass rounded-2xl p-5">
+      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {icon} {title}
+      </div>
+      <div className="mt-3">{children}</div>
+    </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="mt-10">
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-foreground/70">{title}</h2>
+      {children}
+    </section>
   );
 }

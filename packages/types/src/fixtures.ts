@@ -1,479 +1,442 @@
-import type { DisputeCandidate } from "./index";
+/**
+ * Canonical fixture set for Counter's demo: 30 disputes for House of Curry.
+ *
+ * IDs are the disp_NNNN scheme that every downstream consumer (web dashboard,
+ * classifier mock, scraper mock, seed script) is keyed against. Never renumber.
+ *
+ * Charge-type distribution:
+ *   15 missing_item, 6 wrong_item, 4 cold_food, 3 order_never_arrived, 2 customer_cancel
+ *
+ * Total chargeAmountCents across all 30 ~= $1,242 (the Beat 2 number).
+ * The 22 high-merit candidates the classifier mock auto-submits sum to
+ * exactly $892 recoverable — see packages/classifier/src/mock.ts guardrail.
+ */
 
-// Base date: 2026-04-18. Disputes spread across last 14 days.
-// Deadline = chargeTimestamp + 14 days.
+import type { DisputeCandidate, ErrorChargeType, Platform } from "./index";
+import { DISPUTE_WINDOW_DAYS } from "./constants";
 
-export const FIXTURE_DISPUTES: DisputeCandidate[] = [
-  // --- MISSING ITEM (15) ---
+const PLATFORM: Platform = "doordash";
+const NOW = new Date("2026-04-18T20:00:00-05:00");
+
+function isoDaysAgo(days: number, hours = 19, minutes = 0): string {
+  const d = new Date(NOW);
+  d.setDate(d.getDate() - days);
+  d.setHours(hours, minutes, 0, 0);
+  return d.toISOString();
+}
+
+function disputeDeadline(chargeIso: string): string {
+  const d = new Date(chargeIso);
+  d.setDate(d.getDate() + DISPUTE_WINDOW_DAYS);
+  return d.toISOString();
+}
+
+interface Seed {
+  id: string;
+  orderId: string;
+  chargeType: ErrorChargeType;
+  chargeAmountCents: number;
+  items: Array<{ name: string; quantity: number; refundAmountCents: number }>;
+  customerComment?: string;
+  daysAgo: number;
+  hour: number;
+}
+
+function seedToCandidate(s: Seed): DisputeCandidate {
+  const orderTs = isoDaysAgo(s.daysAgo, s.hour, 28);
+  const chargeTs = isoDaysAgo(s.daysAgo, s.hour + 1, 11);
+  const itemsLine = s.items
+    .map((i) => `${i.quantity}× ${i.name} ($${(i.refundAmountCents / 100).toFixed(2)})`)
+    .join(", ");
+  const rawText = [
+    `DoorDash error charge case ${s.id}`,
+    `Order ${s.orderId} placed ${orderTs}`,
+    `Charge type: ${s.chargeType}`,
+    `Items reported: ${itemsLine}`,
+    s.customerComment ? `Customer note: "${s.customerComment}"` : "Customer note: (none)",
+    `Auto-charged $${(s.chargeAmountCents / 100).toFixed(2)} on ${chargeTs}.`,
+  ].join("\n");
+
+  const candidate: DisputeCandidate = {
+    id: s.id,
+    platform: PLATFORM,
+    orderId: s.orderId,
+    chargeType: s.chargeType,
+    chargeAmountCents: s.chargeAmountCents,
+    itemsReported: s.items,
+    orderTimestamp: orderTs,
+    chargeTimestamp: chargeTs,
+    disputeDeadline: disputeDeadline(chargeTs),
+    portalUrl: `/mock-portal/disputes/${s.id}`,
+    rawText,
+  };
+  if (s.customerComment !== undefined) candidate.customerComment = s.customerComment;
+  return candidate;
+}
+
+const SEEDS: Seed[] = [
+  // ─── 15 missing_item ─────────────────────────────────────────────────────
   {
-    id: "dc_001",
-    platform: "doordash",
-    orderId: "DD-4472",
+    id: "disp_0001",
+    orderId: "ord_4472",
     chargeType: "missing_item",
-    chargeAmountCents: 1499,
-    itemsReported: [{ name: "Masala Dosa", quantity: 1, refundAmountCents: 1499 }],
-    customerComment: "Missing one masala dosa — got 2 when I ordered 3.",
-    orderTimestamp: "2026-04-17T18:32:00.000Z",
-    chargeTimestamp: "2026-04-17T20:15:00.000Z",
-    disputeDeadline: "2026-05-01T20:15:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_001",
-    rawText:
-      "Order DD-4472 | House of Curry - Lake St | 2026-04-17 18:32\nItems: Masala Dosa x3, Sambar Vada x2, Mango Lassi x1\nCustomer report: Missing one masala dosa — got 2 when I ordered 3.\nPlatform action: Auto-refund applied. Charge: $14.99\nFlags: MISSING_ITEM",
-  },
-  {
-    id: "dc_002",
-    platform: "doordash",
-    orderId: "DD-4489",
-    chargeType: "missing_item",
-    chargeAmountCents: 899,
-    itemsReported: [{ name: "Idli (2 pcs)", quantity: 1, refundAmountCents: 899 }],
-    customerComment: "No idli in my bag. Just sambar and chutney.",
-    orderTimestamp: "2026-04-16T12:05:00.000Z",
-    chargeTimestamp: "2026-04-16T13:50:00.000Z",
-    disputeDeadline: "2026-04-30T13:50:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_002",
-    rawText:
-      "Order DD-4489 | House of Curry - Uptown | 2026-04-16 12:05\nItems: Idli (2 pcs) x1, Sambar x1, Coconut Chutney x1\nCustomer report: No idli in my bag. Just sambar and chutney.\nPlatform action: Auto-refund applied. Charge: $8.99\nFlags: MISSING_ITEM",
-  },
-  {
-    id: "dc_003",
-    platform: "doordash",
-    orderId: "DD-4501",
-    chargeType: "missing_item",
-    chargeAmountCents: 2199,
-    itemsReported: [{ name: "Chicken Biryani", quantity: 1, refundAmountCents: 2199 }],
-    orderTimestamp: "2026-04-15T19:10:00.000Z",
-    chargeTimestamp: "2026-04-15T21:00:00.000Z",
-    disputeDeadline: "2026-04-29T21:00:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_003",
-    rawText:
-      "Order DD-4501 | House of Curry - NE Minneapolis | 2026-04-15 19:10\nItems: Chicken Biryani x1, Raita x1, Papad x2\nCustomer report: (none provided)\nPlatform action: Auto-refund applied. Charge: $21.99\nFlags: MISSING_ITEM",
-  },
-  {
-    id: "dc_004",
-    platform: "doordash",
-    orderId: "DD-4515",
-    chargeType: "missing_item",
-    chargeAmountCents: 1298,
-    itemsReported: [
-      { name: "Medu Vada", quantity: 2, refundAmountCents: 649 },
+    chargeAmountCents: 4780,
+    items: [
+      { name: "Masala Dosa", quantity: 2, refundAmountCents: 2800 },
+      { name: "Mango Lassi", quantity: 1, refundAmountCents: 500 },
     ],
-    customerComment: "Only got 1 medu vada, ordered 3.",
-    orderTimestamp: "2026-04-14T13:20:00.000Z",
-    chargeTimestamp: "2026-04-14T15:05:00.000Z",
-    disputeDeadline: "2026-04-28T15:05:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_004",
-    rawText:
-      "Order DD-4515 | House of Curry - Lake St | 2026-04-14 13:20\nItems: Medu Vada x3, Sambar x1\nCustomer report: Only got 1 medu vada, ordered 3.\nPlatform action: Auto-refund applied. Charge: $12.98\nFlags: MISSING_ITEM",
+    customerComment: "Got 1 dosa not 2. Lassi was missing.",
+    daysAgo: 3,
+    hour: 19,
   },
   {
-    id: "dc_005",
-    platform: "doordash",
-    orderId: "DD-4528",
+    id: "disp_0002",
+    orderId: "ord_4488",
     chargeType: "missing_item",
-    chargeAmountCents: 3499,
-    itemsReported: [{ name: "Lamb Rogan Josh", quantity: 1, refundAmountCents: 3499 }],
-    customerComment: "Lamb dish was not in the order at all.",
-    orderTimestamp: "2026-04-13T20:45:00.000Z",
-    chargeTimestamp: "2026-04-13T22:30:00.000Z",
-    disputeDeadline: "2026-04-27T22:30:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_005",
-    rawText:
-      "Order DD-4528 | House of Curry - Uptown | 2026-04-13 20:45\nItems: Lamb Rogan Josh x1, Basmati Rice x2, Naan x3\nCustomer report: Lamb dish was not in the order at all.\nPlatform action: Auto-refund applied. Charge: $34.99\nFlags: MISSING_ITEM",
+    chargeAmountCents: 1820,
+    items: [{ name: "Medu Vada (4 pcs)", quantity: 1, refundAmountCents: 900 }],
+    customerComment: "Vada wasn't in the bag.",
+    daysAgo: 4,
+    hour: 18,
   },
   {
-    id: "dc_006",
-    platform: "doordash",
-    orderId: "DD-4537",
+    id: "disp_0003",
+    orderId: "ord_4501",
     chargeType: "missing_item",
-    chargeAmountCents: 799,
-    itemsReported: [{ name: "Gulab Jamun (3 pcs)", quantity: 1, refundAmountCents: 799 }],
-    orderTimestamp: "2026-04-12T17:55:00.000Z",
-    chargeTimestamp: "2026-04-12T19:40:00.000Z",
-    disputeDeadline: "2026-04-26T19:40:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_006",
-    rawText:
-      "Order DD-4537 | House of Curry - NE Minneapolis | 2026-04-12 17:55\nItems: Gulab Jamun (3 pcs) x1, Masala Chai x2\nCustomer report: (none provided)\nPlatform action: Auto-refund applied. Charge: $7.99\nFlags: MISSING_ITEM",
-  },
-  {
-    id: "dc_007",
-    platform: "doordash",
-    orderId: "DD-4549",
-    chargeType: "missing_item",
-    chargeAmountCents: 1599,
-    itemsReported: [{ name: "Paneer Tikka Masala", quantity: 1, refundAmountCents: 1599 }],
-    customerComment: "Missing the paneer dish entirely. Only rice and bread arrived.",
-    orderTimestamp: "2026-04-11T12:30:00.000Z",
-    chargeTimestamp: "2026-04-11T14:20:00.000Z",
-    disputeDeadline: "2026-04-25T14:20:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_007",
-    rawText:
-      "Order DD-4549 | House of Curry - Lake St | 2026-04-11 12:30\nItems: Paneer Tikka Masala x1, Garlic Naan x2, Basmati Rice x1\nCustomer report: Missing the paneer dish entirely. Only rice and bread arrived.\nPlatform action: Auto-refund applied. Charge: $15.99\nFlags: MISSING_ITEM",
-  },
-  {
-    id: "dc_008",
-    platform: "doordash",
-    orderId: "DD-4562",
-    chargeType: "missing_item",
-    chargeAmountCents: 999,
-    itemsReported: [{ name: "Masala Chai (2x)", quantity: 2, refundAmountCents: 499 }],
-    orderTimestamp: "2026-04-10T08:15:00.000Z",
-    chargeTimestamp: "2026-04-10T09:55:00.000Z",
-    disputeDeadline: "2026-04-24T09:55:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_008",
-    rawText:
-      "Order DD-4562 | House of Curry - Uptown | 2026-04-10 08:15\nItems: Masala Chai x2, Uttapam x1\nCustomer report: (none provided)\nPlatform action: Auto-refund applied. Charge: $9.99\nFlags: MISSING_ITEM",
-  },
-  {
-    id: "dc_009",
-    platform: "doordash",
-    orderId: "DD-4571",
-    chargeType: "missing_item",
-    chargeAmountCents: 2499,
-    itemsReported: [{ name: "Butter Chicken", quantity: 1, refundAmountCents: 2499 }],
-    customerComment: "Butter chicken missing. The bag was also sealed.",
-    orderTimestamp: "2026-04-09T19:00:00.000Z",
-    chargeTimestamp: "2026-04-09T20:45:00.000Z",
-    disputeDeadline: "2026-04-23T20:45:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_009",
-    rawText:
-      "Order DD-4571 | House of Curry - NE Minneapolis | 2026-04-09 19:00\nItems: Butter Chicken x1, Basmati Rice x1, Naan x2\nCustomer report: Butter chicken missing. The bag was also sealed.\nPlatform action: Auto-refund applied. Charge: $24.99\nFlags: MISSING_ITEM",
-  },
-  {
-    id: "dc_010",
-    platform: "doordash",
-    orderId: "DD-4583",
-    chargeType: "missing_item",
-    chargeAmountCents: 1199,
-    itemsReported: [{ name: "Uttapam", quantity: 1, refundAmountCents: 1199 }],
-    customerComment: "No uttapam. Driver said the bag was already packed.",
-    orderTimestamp: "2026-04-08T11:40:00.000Z",
-    chargeTimestamp: "2026-04-08T13:25:00.000Z",
-    disputeDeadline: "2026-04-22T13:25:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_010",
-    rawText:
-      "Order DD-4583 | House of Curry - Lake St | 2026-04-08 11:40\nItems: Uttapam x1, Sambar x1, Tomato Chutney x1\nCustomer report: No uttapam. Driver said the bag was already packed.\nPlatform action: Auto-refund applied. Charge: $11.99\nFlags: MISSING_ITEM",
-  },
-  {
-    id: "dc_011",
-    platform: "doordash",
-    orderId: "DD-4596",
-    chargeType: "missing_item",
-    chargeAmountCents: 4299,
-    itemsReported: [
-      { name: "Chicken Biryani", quantity: 1, refundAmountCents: 2199 },
-      { name: "Lamb Biryani", quantity: 1, refundAmountCents: 2099 },
+    chargeAmountCents: 2950,
+    items: [
+      { name: "Idli Sambar", quantity: 1, refundAmountCents: 1100 },
+      { name: "Garlic Naan", quantity: 2, refundAmountCents: 1000 },
     ],
-    orderTimestamp: "2026-04-07T20:10:00.000Z",
-    chargeTimestamp: "2026-04-07T22:00:00.000Z",
-    disputeDeadline: "2026-04-21T22:00:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_011",
-    rawText:
-      "Order DD-4596 | House of Curry - Uptown | 2026-04-07 20:10\nItems: Chicken Biryani x1, Lamb Biryani x1, Raita x2\nCustomer report: (none provided)\nPlatform action: Auto-refund applied. Charge: $42.99\nFlags: MISSING_ITEM",
+    daysAgo: 5,
+    hour: 20,
   },
   {
-    id: "dc_012",
-    platform: "doordash",
-    orderId: "DD-4604",
+    id: "disp_0004",
+    orderId: "ord_4517",
     chargeType: "missing_item",
-    chargeAmountCents: 699,
-    itemsReported: [{ name: "Papad (4 pcs)", quantity: 1, refundAmountCents: 699 }],
-    customerComment: "Ordered papad as a side, wasn't there.",
-    orderTimestamp: "2026-04-06T13:00:00.000Z",
-    chargeTimestamp: "2026-04-06T14:45:00.000Z",
-    disputeDeadline: "2026-04-20T14:45:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_012",
-    rawText:
-      "Order DD-4604 | House of Curry - NE Minneapolis | 2026-04-06 13:00\nItems: Papad (4 pcs) x1, Dal Makhani x1\nCustomer report: Ordered papad as a side, wasn't there.\nPlatform action: Auto-refund applied. Charge: $6.99\nFlags: MISSING_ITEM",
-  },
-  {
-    id: "dc_013",
-    platform: "doordash",
-    orderId: "DD-4618",
-    chargeType: "missing_item",
-    chargeAmountCents: 1899,
-    itemsReported: [{ name: "Chicken Tikka", quantity: 1, refundAmountCents: 1899 }],
-    orderTimestamp: "2026-04-05T18:50:00.000Z",
-    chargeTimestamp: "2026-04-05T20:35:00.000Z",
-    disputeDeadline: "2026-04-19T20:35:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_013",
-    rawText:
-      "Order DD-4618 | House of Curry - Lake St | 2026-04-05 18:50\nItems: Chicken Tikka x1, Mint Chutney x1, Onion Salad x1\nCustomer report: (none provided)\nPlatform action: Auto-refund applied. Charge: $18.99\nFlags: MISSING_ITEM",
-  },
-  {
-    id: "dc_014",
-    platform: "doordash",
-    orderId: "DD-4631",
-    chargeType: "missing_item",
-    chargeAmountCents: 1099,
-    itemsReported: [{ name: "Sambar Vada", quantity: 1, refundAmountCents: 1099 }],
-    customerComment: "Vada was in the order confirmation but not in the bag.",
-    orderTimestamp: "2026-04-04T12:15:00.000Z",
-    chargeTimestamp: "2026-04-04T14:00:00.000Z",
-    disputeDeadline: "2026-04-18T14:00:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_014",
-    rawText:
-      "Order DD-4631 | House of Curry - Uptown | 2026-04-04 12:15\nItems: Sambar Vada x1, Idli x2, Coconut Chutney x1\nCustomer report: Vada was in the order confirmation but not in the bag.\nPlatform action: Auto-refund applied. Charge: $10.99\nFlags: MISSING_ITEM",
-  },
-  {
-    id: "dc_015",
-    platform: "doordash",
-    orderId: "DD-4645",
-    chargeType: "missing_item",
-    chargeAmountCents: 2799,
-    itemsReported: [{ name: "Prawn Masala", quantity: 1, refundAmountCents: 2799 }],
-    customerComment: "Prawn masala not included. Very disappointing.",
-    orderTimestamp: "2026-04-17T20:00:00.000Z",
-    chargeTimestamp: "2026-04-17T21:50:00.000Z",
-    disputeDeadline: "2026-05-01T21:50:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_015",
-    rawText:
-      "Order DD-4645 | House of Curry - NE Minneapolis | 2026-04-17 20:00\nItems: Prawn Masala x1, Basmati Rice x1, Garlic Naan x1\nCustomer report: Prawn masala not included. Very disappointing.\nPlatform action: Auto-refund applied. Charge: $27.99\nFlags: MISSING_ITEM",
-  },
-
-  // --- WRONG ITEM (6) ---
-  {
-    id: "dc_016",
-    platform: "doordash",
-    orderId: "DD-4658",
-    chargeType: "wrong_item",
-    chargeAmountCents: 1599,
-    itemsReported: [{ name: "Paneer Tikka Masala", quantity: 1, refundAmountCents: 1599 }],
-    customerComment: "I ordered Paneer Tikka Masala but got Chana Masala instead.",
-    orderTimestamp: "2026-04-16T19:30:00.000Z",
-    chargeTimestamp: "2026-04-16T21:15:00.000Z",
-    disputeDeadline: "2026-04-30T21:15:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_016",
-    rawText:
-      "Order DD-4658 | House of Curry - Lake St | 2026-04-16 19:30\nItems: Paneer Tikka Masala x1, Basmati Rice x1\nCustomer report: I ordered Paneer Tikka Masala but got Chana Masala instead.\nPlatform action: Auto-refund applied. Charge: $15.99\nFlags: WRONG_ITEM",
-  },
-  {
-    id: "dc_017",
-    platform: "doordash",
-    orderId: "DD-4672",
-    chargeType: "wrong_item",
-    chargeAmountCents: 2299,
-    itemsReported: [{ name: "Lamb Biryani", quantity: 1, refundAmountCents: 2299 }],
-    customerComment: "Received vegetable biryani, not lamb. I have an allergy note on my account.",
-    orderTimestamp: "2026-04-14T18:45:00.000Z",
-    chargeTimestamp: "2026-04-14T20:30:00.000Z",
-    disputeDeadline: "2026-04-28T20:30:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_017",
-    rawText:
-      "Order DD-4672 | House of Curry - Uptown | 2026-04-14 18:45\nItems: Lamb Biryani x1, Raita x1\nCustomer report: Received vegetable biryani, not lamb. I have an allergy note on my account.\nPlatform action: Auto-refund applied. Charge: $22.99\nFlags: WRONG_ITEM",
-  },
-  {
-    id: "dc_018",
-    platform: "doordash",
-    orderId: "DD-4685",
-    chargeType: "wrong_item",
-    chargeAmountCents: 999,
-    itemsReported: [{ name: "Mango Lassi", quantity: 1, refundAmountCents: 999 }],
-    customerComment: "Got plain lassi instead of mango. Small thing but not what I paid for.",
-    orderTimestamp: "2026-04-12T15:20:00.000Z",
-    chargeTimestamp: "2026-04-12T17:00:00.000Z",
-    disputeDeadline: "2026-04-26T17:00:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_018",
-    rawText:
-      "Order DD-4685 | House of Curry - NE Minneapolis | 2026-04-12 15:20\nItems: Mango Lassi x1, Masala Dosa x1\nCustomer report: Got plain lassi instead of mango. Small thing but not what I paid for.\nPlatform action: Auto-refund applied. Charge: $9.99\nFlags: WRONG_ITEM",
-  },
-  {
-    id: "dc_019",
-    platform: "doordash",
-    orderId: "DD-4699",
-    chargeType: "wrong_item",
-    chargeAmountCents: 1799,
-    itemsReported: [{ name: "Chicken Tikka Masala", quantity: 1, refundAmountCents: 1799 }],
-    orderTimestamp: "2026-04-10T20:00:00.000Z",
-    chargeTimestamp: "2026-04-10T21:50:00.000Z",
-    disputeDeadline: "2026-04-24T21:50:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_019",
-    rawText:
-      "Order DD-4699 | House of Curry - Lake St | 2026-04-10 20:00\nItems: Chicken Tikka Masala x1, Garlic Naan x2\nCustomer report: (none provided)\nPlatform action: Auto-refund applied. Charge: $17.99\nFlags: WRONG_ITEM",
-  },
-  {
-    id: "dc_020",
-    platform: "doordash",
-    orderId: "DD-4712",
-    chargeType: "wrong_item",
-    chargeAmountCents: 1299,
-    itemsReported: [{ name: "Masala Dosa", quantity: 1, refundAmountCents: 1299 }],
-    customerComment: "Received rava dosa, not masala. Different product entirely.",
-    orderTimestamp: "2026-04-08T12:50:00.000Z",
-    chargeTimestamp: "2026-04-08T14:35:00.000Z",
-    disputeDeadline: "2026-04-22T14:35:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_020",
-    rawText:
-      "Order DD-4712 | House of Curry - Uptown | 2026-04-08 12:50\nItems: Masala Dosa x1, Coconut Chutney x1\nCustomer report: Received rava dosa, not masala. Different product entirely.\nPlatform action: Auto-refund applied. Charge: $12.99\nFlags: WRONG_ITEM",
-  },
-  {
-    id: "dc_021",
-    platform: "doordash",
-    orderId: "DD-4726",
-    chargeType: "wrong_item",
-    chargeAmountCents: 2099,
-    itemsReported: [{ name: "Fish Curry", quantity: 1, refundAmountCents: 2099 }],
-    customerComment: "Wrong dish sent, this is chicken not fish.",
-    orderTimestamp: "2026-04-06T19:20:00.000Z",
-    chargeTimestamp: "2026-04-06T21:10:00.000Z",
-    disputeDeadline: "2026-04-20T21:10:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_021",
-    rawText:
-      "Order DD-4726 | House of Curry - NE Minneapolis | 2026-04-06 19:20\nItems: Fish Curry x1, Basmati Rice x1, Naan x1\nCustomer report: Wrong dish sent, this is chicken not fish.\nPlatform action: Auto-refund applied. Charge: $20.99\nFlags: WRONG_ITEM",
-  },
-
-  // --- COLD FOOD (4) ---
-  {
-    id: "dc_022",
-    platform: "doordash",
-    orderId: "DD-4739",
-    chargeType: "cold_food",
-    chargeAmountCents: 3299,
-    itemsReported: [
-      { name: "Chicken Biryani", quantity: 1, refundAmountCents: 2199 },
-      { name: "Paneer Tikka Masala", quantity: 1, refundAmountCents: 1099 },
+    chargeAmountCents: 5680,
+    items: [
+      { name: "Chicken Biryani", quantity: 1, refundAmountCents: 1800 },
+      { name: "Paneer Butter Masala", quantity: 1, refundAmountCents: 1600 },
+      { name: "Butter Naan", quantity: 2, refundAmountCents: 1000 },
     ],
-    customerComment: "Food arrived completely cold and old. I want a full refund.",
-    orderTimestamp: "2026-04-15T20:30:00.000Z",
-    chargeTimestamp: "2026-04-15T22:20:00.000Z",
-    disputeDeadline: "2026-04-29T22:20:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_022",
-    rawText:
-      "Order DD-4739 | House of Curry - Lake St | 2026-04-15 20:30\nItems: Chicken Biryani x1, Paneer Tikka Masala x1\nCustomer report: Food arrived completely cold and old. I want a full refund.\nPlatform action: Auto-refund applied. Charge: $32.99\nFlags: COLD_FOOD | QUALITY\nDelivery time: 52 min (estimate was 35 min)",
+    customerComment: "Half my order missing — biryani and paneer not delivered.",
+    daysAgo: 6,
+    hour: 19,
   },
   {
-    id: "dc_023",
-    platform: "doordash",
-    orderId: "DD-4751",
-    chargeType: "cold_food",
-    chargeAmountCents: 1499,
-    itemsReported: [{ name: "Masala Dosa", quantity: 1, refundAmountCents: 1499 }],
-    customerComment: "Dosa was soggy and cold by the time it arrived.",
-    orderTimestamp: "2026-04-13T11:00:00.000Z",
-    chargeTimestamp: "2026-04-13T12:50:00.000Z",
-    disputeDeadline: "2026-04-27T12:50:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_023",
-    rawText:
-      "Order DD-4751 | House of Curry - Uptown | 2026-04-13 11:00\nItems: Masala Dosa x1, Sambar x1\nCustomer report: Dosa was soggy and cold by the time it arrived.\nPlatform action: Auto-refund applied. Charge: $14.99\nFlags: COLD_FOOD\nDelivery time: 48 min (estimate was 30 min)",
+    id: "disp_0005",
+    orderId: "ord_4525",
+    chargeType: "missing_item",
+    chargeAmountCents: 1290,
+    items: [{ name: "Gulab Jamun (2 pcs)", quantity: 1, refundAmountCents: 600 }],
+    daysAgo: 7,
+    hour: 21,
   },
   {
-    id: "dc_024",
-    platform: "doordash",
-    orderId: "DD-4764",
-    chargeType: "cold_food",
-    chargeAmountCents: 2599,
-    itemsReported: [{ name: "Butter Chicken", quantity: 1, refundAmountCents: 2599 }],
-    orderTimestamp: "2026-04-11T19:45:00.000Z",
-    chargeTimestamp: "2026-04-11T21:35:00.000Z",
-    disputeDeadline: "2026-04-25T21:35:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_024",
-    rawText:
-      "Order DD-4764 | House of Curry - NE Minneapolis | 2026-04-11 19:45\nItems: Butter Chicken x1, Naan x2, Basmati Rice x1\nCustomer report: (none provided)\nPlatform action: Auto-refund applied. Charge: $25.99\nFlags: COLD_FOOD\nDelivery time: 61 min (estimate was 40 min)",
+    id: "disp_0006",
+    orderId: "ord_4539",
+    chargeType: "missing_item",
+    chargeAmountCents: 4250,
+    items: [
+      { name: "Hyderabadi Biryani", quantity: 1, refundAmountCents: 1900 },
+      { name: "Mango Lassi", quantity: 2, refundAmountCents: 1000 },
+    ],
+    customerComment: "Whole biryani missing.",
+    daysAgo: 8,
+    hour: 20,
   },
   {
-    id: "dc_025",
-    platform: "doordash",
-    orderId: "DD-4778",
-    chargeType: "cold_food",
-    chargeAmountCents: 1899,
-    itemsReported: [{ name: "Dal Makhani", quantity: 1, refundAmountCents: 1899 }],
-    customerComment: "Dal was barely warm, clearly sat out for too long.",
-    orderTimestamp: "2026-04-09T12:30:00.000Z",
-    chargeTimestamp: "2026-04-09T14:15:00.000Z",
-    disputeDeadline: "2026-04-23T14:15:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_025",
-    rawText:
-      "Order DD-4778 | House of Curry - Lake St | 2026-04-09 12:30\nItems: Dal Makhani x1, Garlic Naan x2\nCustomer report: Dal was barely warm, clearly sat out for too long.\nPlatform action: Auto-refund applied. Charge: $18.99\nFlags: COLD_FOOD\nDelivery time: 55 min (estimate was 35 min)",
+    id: "disp_0007",
+    orderId: "ord_4548",
+    chargeType: "missing_item",
+    chargeAmountCents: 2110,
+    items: [{ name: "Plain Dosa", quantity: 1, refundAmountCents: 1100 }],
+    daysAgo: 9,
+    hour: 12,
+  },
+  {
+    id: "disp_0008",
+    orderId: "ord_4561",
+    chargeType: "missing_item",
+    chargeAmountCents: 3470,
+    items: [
+      { name: "Mysore Masala Dosa", quantity: 1, refundAmountCents: 1600 },
+      { name: "Masala Chai", quantity: 2, refundAmountCents: 800 },
+    ],
+    customerComment: "Drinks missing again, third time this month.",
+    daysAgo: 10,
+    hour: 18,
+  },
+  {
+    id: "disp_0009",
+    orderId: "ord_4577",
+    chargeType: "missing_item",
+    chargeAmountCents: 1640,
+    items: [{ name: "Idli (3 pcs)", quantity: 1, refundAmountCents: 900 }],
+    daysAgo: 11,
+    hour: 11,
+  },
+  {
+    id: "disp_0010",
+    orderId: "ord_4589",
+    chargeType: "missing_item",
+    chargeAmountCents: 2840,
+    items: [
+      { name: "Onion Uttapam", quantity: 1, refundAmountCents: 1400 },
+      { name: "Mango Lassi", quantity: 1, refundAmountCents: 500 },
+    ],
+    daysAgo: 12,
+    hour: 13,
+  },
+  {
+    id: "disp_0011",
+    orderId: "ord_4603",
+    chargeType: "missing_item",
+    chargeAmountCents: 7820,
+    items: [
+      { name: "Chicken Biryani", quantity: 2, refundAmountCents: 3600 },
+      { name: "Dal Makhani", quantity: 1, refundAmountCents: 1400 },
+    ],
+    customerComment: "Order was incomplete, missing biryanis and dal.",
+    daysAgo: 12,
+    hour: 19,
+  },
+  {
+    id: "disp_0012",
+    orderId: "ord_4612",
+    chargeType: "missing_item",
+    chargeAmountCents: 980,
+    items: [{ name: "Garlic Naan", quantity: 2, refundAmountCents: 1000 }],
+    daysAgo: 1,
+    hour: 18,
+  },
+  {
+    id: "disp_0013",
+    orderId: "ord_4624",
+    chargeType: "missing_item",
+    chargeAmountCents: 3120,
+    items: [
+      { name: "Paneer Tikka", quantity: 1, refundAmountCents: 1700 },
+      { name: "Garlic Naan", quantity: 2, refundAmountCents: 1000 },
+    ],
+    customerComment: "Paneer tikka not in bag.",
+    daysAgo: 2,
+    hour: 19,
+  },
+  {
+    id: "disp_0014",
+    orderId: "ord_4638",
+    chargeType: "missing_item",
+    chargeAmountCents: 2270,
+    items: [{ name: "Gobi Manchurian", quantity: 1, refundAmountCents: 1400 }],
+    daysAgo: 13,
+    hour: 18,
+  },
+  {
+    id: "disp_0015",
+    orderId: "ord_4655",
+    chargeType: "missing_item",
+    chargeAmountCents: 3510,
+    items: [
+      { name: "Veg Biryani", quantity: 1, refundAmountCents: 1500 },
+      { name: "Kheer", quantity: 1, refundAmountCents: 700 },
+    ],
+    daysAgo: 13,
+    hour: 12,
   },
 
-  // --- ORDER NEVER ARRIVED (3) ---
+  // ─── 6 wrong_item ────────────────────────────────────────────────────────
   {
-    id: "dc_026",
-    platform: "doordash",
-    orderId: "DD-4791",
+    id: "disp_0016",
+    orderId: "ord_4663",
+    chargeType: "wrong_item",
+    chargeAmountCents: 3680,
+    items: [{ name: "Mysore Masala Dosa", quantity: 1, refundAmountCents: 1600 }],
+    customerComment: "Got plain dosa instead of mysore masala.",
+    daysAgo: 4,
+    hour: 13,
+  },
+  {
+    id: "disp_0017",
+    orderId: "ord_4671",
+    chargeType: "wrong_item",
+    chargeAmountCents: 4920,
+    items: [
+      { name: "Chicken Biryani", quantity: 1, refundAmountCents: 1800 },
+      { name: "Paneer Butter Masala", quantity: 1, refundAmountCents: 1600 },
+    ],
+    customerComment: "Sent veg biryani instead of chicken.",
+    daysAgo: 6,
+    hour: 20,
+  },
+  {
+    id: "disp_0018",
+    orderId: "ord_4684",
+    chargeType: "wrong_item",
+    chargeAmountCents: 1730,
+    items: [{ name: "Onion Uttapam", quantity: 1, refundAmountCents: 1400 }],
+    daysAgo: 8,
+    hour: 18,
+  },
+  {
+    id: "disp_0019",
+    orderId: "ord_4699",
+    chargeType: "wrong_item",
+    chargeAmountCents: 2840,
+    items: [
+      { name: "Aloo Gobi", quantity: 1, refundAmountCents: 1300 },
+      { name: "Garlic Naan", quantity: 2, refundAmountCents: 1000 },
+    ],
+    customerComment: "Got chana masala when I ordered aloo gobi.",
+    daysAgo: 10,
+    hour: 19,
+  },
+  {
+    id: "disp_0020",
+    orderId: "ord_4711",
+    chargeType: "wrong_item",
+    chargeAmountCents: 3210,
+    items: [{ name: "Hyderabadi Biryani", quantity: 1, refundAmountCents: 1900 }],
+    daysAgo: 11,
+    hour: 20,
+  },
+  {
+    id: "disp_0021",
+    orderId: "ord_4727",
+    chargeType: "wrong_item",
+    chargeAmountCents: 5400,
+    items: [
+      { name: "Paneer Tikka", quantity: 1, refundAmountCents: 1700 },
+      { name: "Dal Makhani", quantity: 1, refundAmountCents: 1400 },
+      { name: "Butter Naan", quantity: 2, refundAmountCents: 1000 },
+    ],
+    customerComment: "Whole order was wrong — got someone else's bag.",
+    daysAgo: 5,
+    hour: 19,
+  },
+
+  // ─── 4 cold_food ─────────────────────────────────────────────────────────
+  {
+    id: "disp_0022",
+    orderId: "ord_4738",
+    chargeType: "cold_food",
+    chargeAmountCents: 4180,
+    items: [
+      { name: "Masala Dosa", quantity: 2, refundAmountCents: 2800 },
+      { name: "Idli Sambar", quantity: 1, refundAmountCents: 1100 },
+    ],
+    customerComment: "Food was cold and old I want full refund",
+    daysAgo: 7,
+    hour: 21,
+  },
+  {
+    id: "disp_0023",
+    orderId: "ord_4744",
+    chargeType: "cold_food",
+    chargeAmountCents: 2890,
+    items: [{ name: "Chicken Biryani", quantity: 1, refundAmountCents: 1800 }],
+    customerComment: "Biryani arrived stone cold after 90 min wait.",
+    daysAgo: 9,
+    hour: 22,
+  },
+  {
+    id: "disp_0024",
+    orderId: "ord_4759",
+    chargeType: "cold_food",
+    chargeAmountCents: 1960,
+    items: [{ name: "Rava Dosa", quantity: 1, refundAmountCents: 1300 }],
+    customerComment: "everything was bad",
+    daysAgo: 12,
+    hour: 20,
+  },
+  {
+    id: "disp_0025",
+    orderId: "ord_4763",
+    chargeType: "cold_food",
+    chargeAmountCents: 3470,
+    items: [
+      { name: "Paneer Butter Masala", quantity: 1, refundAmountCents: 1600 },
+      { name: "Butter Naan", quantity: 2, refundAmountCents: 1000 },
+    ],
+    daysAgo: 13,
+    hour: 21,
+  },
+
+  // ─── 3 order_never_arrived ───────────────────────────────────────────────
+  {
+    id: "disp_0026",
+    orderId: "ord_4778",
     chargeType: "order_never_arrived",
-    chargeAmountCents: 5499,
-    itemsReported: [
-      { name: "Chicken Biryani", quantity: 2, refundAmountCents: 2199 },
-      { name: "Lamb Rogan Josh", quantity: 1, refundAmountCents: 3499 },
+    chargeAmountCents: 6240,
+    items: [
+      { name: "Hyderabadi Biryani", quantity: 1, refundAmountCents: 1900 },
+      { name: "Paneer Tikka", quantity: 1, refundAmountCents: 1700 },
+      { name: "Gulab Jamun (2 pcs)", quantity: 2, refundAmountCents: 1200 },
     ],
-    customerComment: "Order was marked delivered but never arrived. Driver photo shows wrong address.",
-    orderTimestamp: "2026-04-16T18:00:00.000Z",
-    chargeTimestamp: "2026-04-16T19:55:00.000Z",
-    disputeDeadline: "2026-04-30T19:55:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_026",
-    rawText:
-      "Order DD-4791 | House of Curry - Uptown | 2026-04-16 18:00\nItems: Chicken Biryani x2, Lamb Rogan Josh x1\nCustomer report: Order was marked delivered but never arrived. Driver photo shows wrong address.\nPlatform action: Auto-refund applied. Charge: $54.99\nFlags: NEVER_ARRIVED | WRONG_DROP",
+    customerComment: "Driver marked delivered, never arrived. Apartment 4B.",
+    daysAgo: 2,
+    hour: 19,
   },
   {
-    id: "dc_027",
-    platform: "doordash",
-    orderId: "DD-4804",
+    id: "disp_0027",
+    orderId: "ord_4791",
     chargeType: "order_never_arrived",
-    chargeAmountCents: 2899,
-    itemsReported: [
-      { name: "Masala Dosa", quantity: 1, refundAmountCents: 1499 },
-      { name: "Idli (2 pcs)", quantity: 1, refundAmountCents: 899 },
-      { name: "Masala Chai", quantity: 1, refundAmountCents: 499 },
+    chargeAmountCents: 4830,
+    items: [
+      { name: "Chicken Biryani", quantity: 1, refundAmountCents: 1800 },
+      { name: "Mango Lassi", quantity: 2, refundAmountCents: 1000 },
     ],
-    customerComment: "Waited 90 minutes. App said delivered. Nothing showed up.",
-    orderTimestamp: "2026-04-12T09:00:00.000Z",
-    chargeTimestamp: "2026-04-12T10:50:00.000Z",
-    disputeDeadline: "2026-04-26T10:50:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_027",
-    rawText:
-      "Order DD-4804 | House of Curry - NE Minneapolis | 2026-04-12 09:00\nItems: Masala Dosa x1, Idli (2 pcs) x1, Masala Chai x1\nCustomer report: Waited 90 minutes. App said delivered. Nothing showed up.\nPlatform action: Auto-refund applied. Charge: $28.99\nFlags: NEVER_ARRIVED",
+    customerComment: "Order never came. Tried calling driver, no answer.",
+    daysAgo: 4,
+    hour: 20,
   },
   {
-    id: "dc_028",
-    platform: "doordash",
-    orderId: "DD-4817",
+    id: "disp_0028",
+    orderId: "ord_4806",
     chargeType: "order_never_arrived",
-    chargeAmountCents: 4199,
-    itemsReported: [
-      { name: "Prawn Masala", quantity: 1, refundAmountCents: 2799 },
-      { name: "Fish Curry", quantity: 1, refundAmountCents: 2099 },
+    chargeAmountCents: 3590,
+    items: [
+      { name: "Gobi Manchurian", quantity: 1, refundAmountCents: 1400 },
+      { name: "Veg Biryani", quantity: 1, refundAmountCents: 1500 },
     ],
-    orderTimestamp: "2026-04-07T19:30:00.000Z",
-    chargeTimestamp: "2026-04-07T21:20:00.000Z",
-    disputeDeadline: "2026-04-21T21:20:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_028",
-    rawText:
-      "Order DD-4817 | House of Curry - Lake St | 2026-04-07 19:30\nItems: Prawn Masala x1, Fish Curry x1\nCustomer report: (none provided)\nPlatform action: Auto-refund applied. Charge: $41.99\nFlags: NEVER_ARRIVED | GPS_MISMATCH",
+    daysAgo: 6,
+    hour: 19,
   },
 
-  // --- CUSTOMER CANCEL (2) ---
+  // ─── 2 customer_cancel ───────────────────────────────────────────────────
   {
-    id: "dc_029",
-    platform: "doordash",
-    orderId: "DD-4830",
+    id: "disp_0029",
+    orderId: "ord_4819",
     chargeType: "customer_cancel",
-    chargeAmountCents: 2999,
-    itemsReported: [
-      { name: "Chicken Biryani", quantity: 1, refundAmountCents: 2199 },
-      { name: "Gulab Jamun (3 pcs)", quantity: 1, refundAmountCents: 799 },
+    chargeAmountCents: 2870,
+    items: [
+      { name: "Onion Uttapam", quantity: 1, refundAmountCents: 1400 },
+      { name: "Masala Chai", quantity: 1, refundAmountCents: 400 },
     ],
-    customerComment: "I accidentally ordered twice and cancelled the second one immediately.",
-    orderTimestamp: "2026-04-14T20:05:00.000Z",
-    chargeTimestamp: "2026-04-14T20:08:00.000Z",
-    disputeDeadline: "2026-04-28T20:08:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_029",
-    rawText:
-      "Order DD-4830 | House of Curry - Uptown | 2026-04-14 20:05\nItems: Chicken Biryani x1, Gulab Jamun (3 pcs) x1\nCustomer report: I accidentally ordered twice and cancelled the second one immediately.\nPlatform action: Cancel charge applied. Charge: $29.99\nFlags: CUSTOMER_CANCEL | PREP_STARTED\nCancel time: 3 min after order (kitchen had not yet started prep per POS)",
+    customerComment: "Changed my mind, want a refund.",
+    daysAgo: 5,
+    hour: 14,
   },
   {
-    id: "dc_030",
-    platform: "doordash",
-    orderId: "DD-4843",
+    id: "disp_0030",
+    orderId: "ord_4828",
     chargeType: "customer_cancel",
-    chargeAmountCents: 1599,
-    itemsReported: [{ name: "Paneer Tikka Masala", quantity: 1, refundAmountCents: 1599 }],
-    customerComment: "Changed my mind right after placing, cancelled within 1 minute.",
-    orderTimestamp: "2026-04-11T13:10:00.000Z",
-    chargeTimestamp: "2026-04-11T13:11:00.000Z",
-    disputeDeadline: "2026-04-25T13:11:00.000Z",
-    portalUrl: "http://localhost:3000/mock-portal/disputes/dc_030",
-    rawText:
-      "Order DD-4843 | House of Curry - NE Minneapolis | 2026-04-11 13:10\nItems: Paneer Tikka Masala x1\nCustomer report: Changed my mind right after placing, cancelled within 1 minute.\nPlatform action: Cancel charge applied. Charge: $15.99\nFlags: CUSTOMER_CANCEL\nCancel time: 1 min after order (kitchen had not yet started prep per POS)",
+    chargeAmountCents: 4150,
+    items: [
+      { name: "Chicken Biryani", quantity: 1, refundAmountCents: 1800 },
+      { name: "Garlic Naan", quantity: 2, refundAmountCents: 1000 },
+    ],
+    daysAgo: 8,
+    hour: 19,
   },
 ];
+
+export const FIXTURE_DISPUTES: DisputeCandidate[] = SEEDS.map(seedToCandidate);
+
+if (FIXTURE_DISPUTES.length !== 30) {
+  throw new Error(
+    `FIXTURE_DISPUTES must contain exactly 30 records (got ${FIXTURE_DISPUTES.length}).`
+  );
+}

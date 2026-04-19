@@ -7,63 +7,69 @@ function sleep(ms: number): Promise<void> {
 }
 
 // Deterministic demo outcomes keyed by fixture dispute ID.
-// Story: 22 approved (~$428 recovered), 1 denied (triggers voice escalation), 7 pending.
+// Story: 3 approved (already-recovered money shown on dashboard),
+//        3 denied (all 3 trigger voice escalation — they're all auto-submit tier),
+//        16 pending (the rest of the 22 submitted disputes — "resolve during demo")
+//        the 4 human-review + 4 skip tier candidates are never submitted, so
+//        they get no outcome row (scrapeOutcomes falls back to pending/0).
 //
-// Approved: all 15 missing_item + all 6 wrong_item + dc_026 (order_never_arrived,
-//           "driver photo shows wrong address" — airtight case)
-// Denied:   dc_022 (cold_food, "completely cold and old, I want full refund" —
-//           delivery time was 52 min; platform sides with customer)
-// Pending:  dc_023–dc_025 (cold_food, gray area), dc_027–dc_028 (order_never_arrived,
-//           still processing), dc_029–dc_030 (customer_cancel, hardest to win)
+// Refund amounts on approved IDs match the classifier mock's recoverableCents,
+// so /api/stats.totalRealizedCents lands in a consistent place regardless of
+// whether outcomes are seeded via the submit path or via scrapeOutcomes.
 const DEMO_OUTCOMES: Record<
   string,
   { outcome: "approved" | "denied" | "pending"; refundedCents: number }
 > = {
-  // --- approved: missing_item (dc_001–dc_015) ---
-  dc_001: { outcome: "approved", refundedCents: 1499 },
-  dc_002: { outcome: "approved", refundedCents: 899 },
-  dc_003: { outcome: "approved", refundedCents: 2199 },
-  dc_004: { outcome: "approved", refundedCents: 1299 },
-  dc_005: { outcome: "approved", refundedCents: 3499 },
-  dc_006: { outcome: "approved", refundedCents: 799 },
-  dc_007: { outcome: "approved", refundedCents: 1599 },
-  dc_008: { outcome: "approved", refundedCents: 999 },
-  dc_009: { outcome: "approved", refundedCents: 2499 },
-  dc_010: { outcome: "approved", refundedCents: 1199 },
-  dc_011: { outcome: "approved", refundedCents: 4299 },
-  dc_012: { outcome: "approved", refundedCents: 699 },
-  dc_013: { outcome: "approved", refundedCents: 1899 },
-  dc_014: { outcome: "approved", refundedCents: 1099 },
-  dc_015: { outcome: "approved", refundedCents: 2799 },
-  // --- approved: wrong_item (dc_016–dc_021) ---
-  dc_016: { outcome: "approved", refundedCents: 1599 },
-  dc_017: { outcome: "approved", refundedCents: 2299 },
-  dc_018: { outcome: "approved", refundedCents: 999 },
-  dc_019: { outcome: "approved", refundedCents: 1799 },
-  dc_020: { outcome: "approved", refundedCents: 1299 },
-  dc_021: { outcome: "approved", refundedCents: 2099 },
-  // --- denied: cold_food with suspicious "full refund" claim (triggers voice escalation) ---
-  dc_022: { outcome: "denied", refundedCents: 0 },
-  // --- pending: cold_food (gray area) ---
-  dc_023: { outcome: "pending", refundedCents: 0 },
-  dc_024: { outcome: "pending", refundedCents: 0 },
-  dc_025: { outcome: "pending", refundedCents: 0 },
-  // --- approved: order_never_arrived with GPS mismatch evidence ---
-  dc_026: { outcome: "approved", refundedCents: 5499 },
-  // --- pending: order_never_arrived (still processing) ---
-  dc_027: { outcome: "pending", refundedCents: 0 },
-  dc_028: { outcome: "pending", refundedCents: 0 },
-  // --- pending: customer_cancel (hardest to win) ---
-  dc_029: { outcome: "pending", refundedCents: 0 },
-  dc_030: { outcome: "pending", refundedCents: 0 },
+  // --- approved: 3 early wins, already-recovered money on the dashboard ---
+  "disp_0001": { outcome: "approved", refundedCents: 5390 }, // order 4472 — the demo hero
+  "disp_0004": { outcome: "approved", refundedCents: 6380 }, // order 4517 — "half my order missing"
+  "disp_0011": { outcome: "approved", refundedCents: 9420 }, // order 4603 — largest recovered
+  // --- denied: all 3 trigger voice escalation (auto-submit tier, >= merit 70) ---
+  "disp_0008": { outcome: "denied", refundedCents: 0 }, // order 4561 — chai-claim pattern
+  "disp_0017": { outcome: "denied", refundedCents: 0 }, // order 4671 — wrong biryani, THE demo call
+  "disp_0023": { outcome: "denied", refundedCents: 0 }, // order 4744 — cold biryani, 90-min-claim
+  // --- pending: 16 auto-submit tier still adjudicating ---
+  "disp_0002": { outcome: "pending", refundedCents: 0 },
+  "disp_0003": { outcome: "pending", refundedCents: 0 },
+  "disp_0005": { outcome: "pending", refundedCents: 0 },
+  "disp_0006": { outcome: "pending", refundedCents: 0 },
+  "disp_0007": { outcome: "pending", refundedCents: 0 },
+  "disp_0009": { outcome: "pending", refundedCents: 0 },
+  "disp_0010": { outcome: "pending", refundedCents: 0 },
+  "disp_0012": { outcome: "pending", refundedCents: 0 },
+  "disp_0013": { outcome: "pending", refundedCents: 0 },
+  "disp_0015": { outcome: "pending", refundedCents: 0 },
+  "disp_0016": { outcome: "pending", refundedCents: 0 },
+  "disp_0018": { outcome: "pending", refundedCents: 0 },
+  "disp_0019": { outcome: "pending", refundedCents: 0 },
+  "disp_0020": { outcome: "pending", refundedCents: 0 },
+  "disp_0021": { outcome: "pending", refundedCents: 0 },
+  "disp_0026": { outcome: "pending", refundedCents: 0 },
 };
 
-// Total approved: $428.78 across 22 disputes.
+/** IDs whose submitted outcome resolves to approved with a real refund. */
+export const DEMO_APPROVED_IDS: ReadonlyArray<string> = [
+  "disp_0001",
+  "disp_0004",
+  "disp_0011",
+] as const;
+
+/** IDs whose submitted outcome is denied — each triggers voice escalation. */
+export const DEMO_DENIED_IDS: ReadonlyArray<string> = [
+  "disp_0008",
+  "disp_0017",
+  "disp_0023",
+] as const;
+
 export const DEMO_OUTCOMES_SUMMARY = {
-  totalApproved: 22,
-  totalDenied: 1,
-  totalPending: 7,
-  totalRecoveredCents: Object.values(DEMO_OUTCOMES).reduce((sum, o) => sum + o.refundedCents, 0),
+  totalApproved: DEMO_APPROVED_IDS.length,
+  totalDenied: DEMO_DENIED_IDS.length,
+  /** High-merit submitted disputes still in pending state after demo seeds. */
+  totalPending: 16,
+  /** Sum of approved refundedCents — the "already recovered" headline figure. */
+  totalRecoveredCents: Object.values(DEMO_OUTCOMES)
+    .filter((o) => o.outcome === "approved")
+    .reduce((sum, o) => sum + o.refundedCents, 0),
 } as const;
 
 export function createMockScraper(opts?: { latencyMs?: number }): Scraper {
@@ -72,11 +78,11 @@ export function createMockScraper(opts?: { latencyMs?: number }): Scraper {
   return {
     async listOpenDisputes(_opts) {
       await sleep(latency);
-      return FIXTURE_DISPUTES;
+      return FIXTURE_DISPUTES.map((d) => ({ ...d }));
     },
 
     async submitDispute(opts) {
-      await sleep(latency);
+      await sleep(Math.min(400, latency / 3));
       const confId = `CONF-${Math.floor(100000 + Math.random() * 900000)}`;
       const result: SubmissionResult = {
         candidateId: opts.candidate.id,
@@ -88,11 +94,11 @@ export function createMockScraper(opts?: { latencyMs?: number }): Scraper {
     },
 
     async scrapeOutcomes(opts) {
-      await sleep(latency);
+      await sleep(Math.min(600, latency / 2));
       return opts.candidateIds.map((id) => {
         const known = DEMO_OUTCOMES[id];
         if (known) return { candidateId: id, ...known };
-        // Unknown ID — return pending so callers don't blow up
+        // Unknown ID (skip/human-review tier, never submitted) — return pending/0
         return { candidateId: id, outcome: "pending" as const, refundedCents: 0 };
       });
     },

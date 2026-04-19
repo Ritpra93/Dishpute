@@ -1,0 +1,53 @@
+[
+  {
+    "scenario": "successful_recovery",
+    "conversation_id": "conv_demo_001",
+    "callSid": "CA_demo_001",
+    "candidateId": "disp_0017",
+    "callOutcome": "recovered",
+    "recoveredCents": 5870,
+    "transcript": [
+      { "role": "agent", "message": "Hi, this is an automated agent calling on behalf of House of Curry. I'd like to discuss dispute case 31188 that was denied this morning.", "timeInCallSecs": 0 },
+      { "role": "user", "message": "Sure, let me pull that up. Can you give me the case number again?", "timeInCallSecs": 8 },
+      { "role": "agent", "message": "Yes, the case number is 31188. It's a wrong-item charge for order 4671.", "timeInCallSecs": 14 },
+      { "role": "user", "message": "Okay I see it here. It says the customer received the wrong dish.", "timeInCallSecs": 22 },
+      { "role": "agent", "message": "That's correct. Our kitchen packs non-veg and veg containers with color-coded stickers per our standard procedure. The POS record and the prep camera both confirm Chicken Biryani was packed in a red non-veg container. The customer's claim isn't consistent with our packing process.", "timeInCallSecs": 30 },
+      { "role": "user", "message": "Let me check the evidence you uploaded... okay I can see the prep record. Give me a moment.", "timeInCallSecs": 52 },
+      { "role": "agent", "message": "Of course, take your time.", "timeInCallSecs": 62 },
+      { "role": "user", "message": "Alright, I'm going to reverse that charge. You'll see the credit within 3 to 5 business days.", "timeInCallSecs": 75 },
+      { "role": "agent", "message": "Thank you very much. We appreciate you reviewing the evidence. Have a good day.", "timeInCallSecs": 84 }
+    ]
+  },
+  {
+    "scenario": "still_denied",
+    "conversation_id": "conv_demo_002",
+    "callSid": "CA_demo_002",
+    "candidateId": "disp_0026",
+    "callOutcome": "still_denied",
+    "recoveredCents": 0,
+    "transcript": [
+      { "role": "agent", "message": "Hi, this is an automated agent calling on behalf of House of Curry regarding dispute case 31209, which was denied earlier today.", "timeInCallSecs": 0 },
+      { "role": "user", "message": "I see the case. The denial stands — the customer reported the order never arrived and our driver GPS confirms delivery at the wrong address.", "timeInCallSecs": 10 },
+      { "role": "agent", "message": "We understand, but the merchant prepared and handed off the order in good condition. The driver log shows pickup at 19:21. The delivery failure appears to be on the driver side, not the kitchen.", "timeInCallSecs": 22 },
+      { "role": "user", "message": "I understand your position, but our policy holds the merchant responsible in this case. The denial will stand.", "timeInCallSecs": 38 },
+      { "role": "agent", "message": "Understood. We'd like to request escalation to a supervisor for further review. Can you open an escalation ticket?", "timeInCallSecs": 48 },
+      { "role": "user", "message": "I can log an escalation. You'll get a reference number by email within 48 hours.", "timeInCallSecs": 58 },
+      { "role": "agent", "message": "Thank you. We appreciate your time.", "timeInCallSecs": 66 }
+    ]
+  },
+  {
+    "scenario": "callback_requested",
+    "conversation_id": "conv_demo_003",
+    "callSid": "CA_demo_003",
+    "candidateId": "disp_0008",
+    "callOutcome": "callback_requested",
+    "recoveredCents": 0,
+    "transcript": [
+      { "role": "agent", "message": "Hi, this is an automated agent calling on behalf of House of Curry about dispute case 31177.", "timeInCallSecs": 0 },
+      { "role": "user", "message": "I'm sorry, our dispute system is currently down for maintenance. Can we call you back in about an hour?", "timeInCallSecs": 8 },
+      { "role": "agent", "message": "Of course. Can you confirm a callback number and reference so we can follow up?", "timeInCallSecs": 16 },
+      { "role": "user", "message": "Sure, call 1-800-555-0100 and reference ticket 31177. Someone will be able to help within the hour.", "timeInCallSecs": 24 },
+      { "role": "agent", "message": "Perfect. We'll follow up at that number. Thank you for your time.", "timeInCallSecs": 33 }
+    ]
+  }
+]

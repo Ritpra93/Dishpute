@@ -10,6 +10,8 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
+    "test:all": "pnpm -r test",
+    "test:demo": "pnpm -F @counter/web test:demo",
     "dev:web": "pnpm -F @counter/web dev",
     "dev:voice": "pnpm -F @counter/voice dev",
     "seed": "pnpm -F @counter/web seed",

@@ -1,118 +1,206 @@
 @import "tailwindcss";
 
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 9%;
-    --radius: 0.5rem;
-
-    /* Counter brand: single green accent for "recovered money" */
-    --money: 142 71% 35%;
-    --money-foreground: 0 0% 100%;
-    --money-soft: 142 76% 96%;
-    --money-soft-foreground: 142 71% 25%;
-
-    /* Merit-tier soft tints */
-    --merit-high-bg: 142 76% 97%;
-    --merit-mid-bg: 38 92% 96%;
-    --merit-low-bg: 0 0% 96%;
-    --denied-border: 0 72% 51%;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --background: 0 0% 7%;
-      --foreground: 0 0% 96%;
-      --card: 0 0% 9%;
-      --card-foreground: 0 0% 96%;
-      --popover: 0 0% 9%;
-      --popover-foreground: 0 0% 96%;
-      --primary: 0 0% 96%;
-      --primary-foreground: 0 0% 9%;
-      --secondary: 0 0% 14%;
-      --secondary-foreground: 0 0% 96%;
-      --muted: 0 0% 14%;
-      --muted-foreground: 0 0% 60%;
-      --accent: 0 0% 14%;
-      --accent-foreground: 0 0% 96%;
-      --destructive: 0 62.8% 30.6%;
-      --destructive-foreground: 0 0% 96%;
-      --border: 0 0% 16%;
-      --input: 0 0% 16%;
-      --ring: 0 0% 84%;
-
-      --money: 142 65% 55%;
-      --money-foreground: 0 0% 9%;
-      --money-soft: 142 35% 14%;
-      --money-soft-foreground: 142 65% 75%;
-
-      --merit-high-bg: 142 35% 12%;
-      --merit-mid-bg: 38 30% 14%;
-      --merit-low-bg: 0 0% 12%;
-      --denied-border: 0 72% 55%;
-    }
-  }
-}
-
 @theme inline {
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
-  --color-money: hsl(var(--money));
-  --color-money-foreground: hsl(var(--money-foreground));
-  --color-money-soft: hsl(var(--money-soft));
-  --color-money-soft-foreground: hsl(var(--money-soft-foreground));
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, "Helvetica Neue", Arial, sans-serif;
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Counter money tokens */
+  --color-money: var(--money);
+  --color-money-foreground: var(--money-foreground);
+  --color-money-soft: var(--money-soft);
+  --color-money-soft-foreground: var(--money-soft-foreground);
+
+  /* Merit / status tiers */
+  --color-merit-high-bg: var(--merit-high-bg);
+  --color-merit-high-fg: var(--merit-high-fg);
+  --color-merit-mid-bg: var(--merit-mid-bg);
+  --color-merit-mid-fg: var(--merit-mid-fg);
+  --color-merit-low-bg: var(--merit-low-bg);
+  --color-merit-low-fg: var(--merit-low-fg);
+
+  /* Denial / approval / live pulse */
+  --color-denied-border: var(--denied-border);
+  --color-denied-bg: var(--denied-bg);
+  --color-approved-bg: var(--approved-bg);
+  --color-live-pulse: var(--live-pulse);
 }
 
-* {
-  border-color: hsl(var(--border));
+/*
+ * Dark fintech palette.
+ * Deep charcoal canvas, graphite cards, neon-lime accent for money,
+ * coral for denial / live alerts.
+ */
+:root {
+  --radius: 1rem;
+
+  /* Canvas */
+  --background: oklch(0.18 0.008 260);
+  --foreground: oklch(0.96 0.005 250);
+
+  /* Cards */
+  --card: oklch(0.22 0.01 260);
+  --card-foreground: oklch(0.96 0.005 250);
+  --popover: oklch(0.24 0.012 260);
+  --popover-foreground: oklch(0.96 0.005 250);
+
+  /* Primary — neon lime */
+  --primary: oklch(0.88 0.22 130);
+  --primary-foreground: oklch(0.18 0.05 140);
+
+  --secondary: oklch(0.28 0.012 260);
+  --secondary-foreground: oklch(0.96 0.005 250);
+
+  --muted: oklch(0.26 0.01 260);
+  --muted-foreground: oklch(0.68 0.012 250);
+
+  --accent: oklch(0.32 0.018 260);
+  --accent-foreground: oklch(0.96 0.005 250);
+
+  /* Destructive — coral */
+  --destructive: oklch(0.7 0.19 25);
+  --destructive-foreground: oklch(0.98 0.005 0);
+
+  --border: oklch(1 0 0 / 0.08);
+  --input: oklch(1 0 0 / 0.12);
+  --ring: oklch(0.88 0.22 130);
+
+  --chart-1: oklch(0.7 0.22 25);
+  --chart-2: oklch(0.78 0.18 70);
+  --chart-3: oklch(0.85 0.18 100);
+  --chart-4: oklch(0.82 0.22 145);
+  --chart-5: oklch(0.7 0.18 220);
+
+  --sidebar: oklch(0.2 0.01 260);
+  --sidebar-foreground: oklch(0.96 0.005 250);
+  --sidebar-primary: oklch(0.88 0.22 130);
+  --sidebar-primary-foreground: oklch(0.18 0.05 140);
+  --sidebar-accent: oklch(0.32 0.018 260);
+  --sidebar-accent-foreground: oklch(0.96 0.005 250);
+  --sidebar-border: oklch(1 0 0 / 0.08);
+  --sidebar-ring: oklch(0.88 0.22 130);
+
+  /* Money — neon lime */
+  --money: oklch(0.9 0.23 130);
+  --money-foreground: oklch(0.18 0.05 140);
+  --money-soft: oklch(0.88 0.22 130 / 0.18);
+  --money-soft-foreground: oklch(0.9 0.23 130);
+
+  /* Merit tiers */
+  --merit-high-bg: oklch(0.88 0.22 130 / 0.16);
+  --merit-high-fg: oklch(0.9 0.23 130);
+  --merit-mid-bg: oklch(0.82 0.18 75 / 0.18);
+  --merit-mid-fg: oklch(0.86 0.17 80);
+  --merit-low-bg: oklch(1 0 0 / 0.06);
+  --merit-low-fg: oklch(0.7 0.012 250);
+
+  --denied-border: oklch(0.7 0.19 25);
+  --denied-bg: oklch(0.7 0.19 25 / 0.12);
+  --approved-bg: oklch(0.88 0.22 130 / 0.1);
+  --live-pulse: oklch(0.72 0.2 25);
 }
 
-html,
-body {
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-feature-settings: "ss01", "cv11";
-  -webkit-font-smoothing: antialiased;
-}
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
 
-body {
-  font-family: var(--font-sans);
+  html, body {
+    background:
+      radial-gradient(900px 600px at 8% -10%, oklch(0.88 0.22 130 / 0.08), transparent 60%),
+      radial-gradient(700px 500px at 100% 10%, oklch(0.7 0.19 25 / 0.06), transparent 60%),
+      radial-gradient(900px 700px at 50% 110%, oklch(0.5 0.15 260 / 0.12), transparent 60%),
+      var(--background);
+    background-attachment: fixed;
+    color: var(--color-foreground);
+    font-family: "Inter Tight", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-feature-settings: "cv11", "ss01", "ss03";
+    letter-spacing: -0.011em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: "Space Grotesk", "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.025em;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Raised graphite card surface */
+  .glass {
+    background:
+      linear-gradient(180deg, oklch(1 0 0 / 0.04), oklch(1 0 0 / 0.01)),
+      var(--card);
+    border: 1px solid oklch(1 0 0 / 0.07);
+    box-shadow:
+      0 1px 0 oklch(1 0 0 / 0.05) inset,
+      0 24px 60px -28px oklch(0 0 0 / 0.5),
+      0 2px 8px -2px oklch(0 0 0 / 0.3);
+  }
+
+  .glass-soft {
+    background: oklch(1 0 0 / 0.025);
+    border: 1px solid oklch(1 0 0 / 0.06);
+  }
+
+  /* Glow utilities for neon accents */
+  .glow-lime {
+    box-shadow: 0 0 24px oklch(0.88 0.22 130 / 0.45);
+  }
+  .text-glow-lime {
+    text-shadow: 0 0 24px oklch(0.88 0.22 130 / 0.55);
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  .animate-pulse-dot { animation: pulse-dot 1.2s ease-in-out infinite; }
+
+  @keyframes row-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-row-in { animation: row-in 0.25s ease-out both; }
 }

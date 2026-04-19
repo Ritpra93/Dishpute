@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { createMockScraper } from "@/lib/mock-scraper";
+import { z } from "zod";
+import { createMockScraper, DEMO_APPROVED_IDS, DEMO_DENIED_IDS } from "@/lib/mock-scraper";
+import { parseParam } from "@/lib/parse-request";
 import {
   getCandidate,
   getClassification,
@@ -9,20 +11,26 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const DENIED_IDS = new Set(["disp_0008", "disp_0017", "disp_0023"]);
-const APPROVED_IDS = new Set(["disp_0001", "disp_0004", "disp_0011"]);
+const DENIED_IDS = new Set<string>(DEMO_DENIED_IDS);
+const APPROVED_IDS = new Set<string>(DEMO_APPROVED_IDS);
+
+const CandidateIdSchema = z.string().regex(/^disp_[0-9]+$/);
 
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
+  const { id: rawId } = await params;
+  const idCheck = parseParam(rawId, CandidateIdSchema, "candidate id");
+  if (!idCheck.ok) return idCheck.response;
+  const id = idCheck.data;
+
   const candidate = getCandidate(id);
   const classification = getClassification(id);
 
   if (!candidate || !classification) {
     return NextResponse.json(
-      { error: `Candidate ${id} or its classification not found.` },
+      { error: "Candidate or classification not found." },
       { status: 404 }
     );
   }

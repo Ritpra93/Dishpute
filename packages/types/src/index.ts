@@ -92,5 +92,33 @@ export interface VoiceCallRecord {
   recoveredCents?: number;
 }
 
+/**
+ * Dispute with all its related records joined in — what the dashboard
+ * table renders for each row.
+ */
+export interface EnrichedDispute extends DisputeCandidate {
+  classification?: ClassifiedDispute;
+  submission?: SubmissionResult;
+  outcome?: DisputeOutcome;
+}
+
+/**
+ * Dashboard aggregate stats for /api/stats. Computed by apps/web/lib/repo.
+ */
+export interface DashboardStats {
+  totalCharges: number;
+  totalDisputed: number;
+  /** Sum of recoverable across every submitted dispute (regardless of outcome). The demo headline. */
+  totalSubmittedRecoverableCents: number;
+  /** Realized money: approved refunds + voice-escalation recoveries. */
+  totalRealizedCents: number;
+  /** Submitted, outcome = pending. */
+  totalInFlightCents: number;
+  /** Submitted, outcome = denied. Escalation candidates. */
+  totalDeniedCents: number;
+  /** Counter's contingency cut on realized money. */
+  counterFeeCents: number;
+}
+
 export * from "./constants";
 export * from "./fixtures";
