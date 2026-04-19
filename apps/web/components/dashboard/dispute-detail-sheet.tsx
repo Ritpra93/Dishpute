@@ -8,6 +8,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MeritBadge } from "./merit-badge";
 import { StatusBadge } from "./status-badge";
@@ -36,6 +37,12 @@ interface VoiceCallStatus {
 
 const VOICE_URL = process.env["NEXT_PUBLIC_VOICE_URL"] ?? "http://localhost:4000";
 
+const CALL_OUTCOME_LABEL: Record<string, string> = {
+  recovered: "Recovered on call",
+  still_denied: "Still denied — escalation logged",
+  callback_requested: "Callback requested",
+};
+
 function useVoiceCallStatus(
   candidateId: string | null,
   enabled: boolean
@@ -48,17 +55,23 @@ function useVoiceCallStatus(
       return;
     }
     let cancelled = false;
+
     const poll = async () => {
       try {
         const res = await fetch(`${VOICE_URL}/calls/status/${candidateId}`, {
           cache: "no-store",
         });
         if (cancelled) return;
-        if (res.ok) setStatus((await res.json()) as VoiceCallStatus);
+        if (res.status === 404) {
+          setStatus(null);
+        } else if (res.ok) {
+          setStatus((await res.json()) as VoiceCallStatus);
+        }
       } catch {
-        // Voice server offline — UI stays in "no call yet" state.
+        // Voice server not running — UI stays in the "no call yet" state.
       }
     };
+
     poll();
     const id = setInterval(poll, 2000);
     return () => {
@@ -93,6 +106,12 @@ export function DisputeDetailSheet({
     setCallStarted(true);
     onEscalate(dispute.id);
   }
+
+  const outcomeLabel =
+    voiceStatus?.callOutcome != null
+      ? CALL_OUTCOME_LABEL[voiceStatus.callOutcome] ?? voiceStatus.callOutcome
+      : null;
+  const callFinished = voiceStatus != null && voiceStatus.callOutcome !== null;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -211,7 +230,35 @@ export function DisputeDetailSheet({
               </div>
 
               {(callStarted || voiceStatus) && (
-                <div className="mt-4 rounded-xl border bg-card p-4 text-xs">
+                <div className="mt-4 space-y-3 rounded-xl border bg-card p-4 text-xs">
+                  {voiceStatus && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                      <span className="text-muted-foreground">
+                        {callFinished
+                          ? `Ended · ${relativeTime(voiceStatus.endedAt ?? voiceStatus.startedAt)}`
+                          : "Live call in progress"}
+                      </span>
+                      {outcomeLabel && (
+                        <Badge
+                          variant={voiceStatus.callOutcome === "recovered" ? "money" : "warning"}
+                        >
+                          {outcomeLabel}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+
+                  {voiceStatus?.callOutcome === "recovered" &&
+                    voiceStatus.recoveredCents !== null && (
+                      <p className="text-sm text-foreground">
+                        Recovered{" "}
+                        <span className="font-semibold tabular-nums text-money">
+                          {formatCentsPrecise(voiceStatus.recoveredCents)}
+                        </span>{" "}
+                        on this call.
+                      </p>
+                    )}
+
                   {voiceStatus?.transcript && voiceStatus.transcript.length > 0 ? (
                     <ol className="space-y-2">
                       {voiceStatus.transcript.map((turn, i) => (
