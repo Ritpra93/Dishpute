@@ -4,7 +4,7 @@
 
 Restaurants lose $10K–$50K per year to DoorDash/UberEats/Grubhub missing-item auto-charges they never dispute. Merchant portals are hostile by design — multi-step forms, no bulk actions, 14-day window. Counter is a co-pilot that reads the dispute queue from inside the merchant's authenticated session, classifies and drafts every disputable charge with Claude, submits them, and escalates denials to support via an ElevenLabs voice agent.
 
-Built at O1 Summit 2026. 24-hour hackathon, 4-person team, built entirely with Claude Code.
+Built at O1 Summit 2026. 24-hour hackathon, 4-person team
 
 ## Demo
 
