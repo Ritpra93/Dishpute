@@ -33,7 +33,7 @@ Full detail: `docs/ARCHITECTURE.md`.
 
 - TypeScript + pnpm workspaces
 - Next.js 16 App Router + Tailwind + shadcn/ui + motion
-- better-sqlite3
+- better-sqlite3 (shared `counter.db` at repo root)
 - TinyFish (browser automation) via REST+SSE
 - Anthropic SDK — Claude Sonnet 4.6 / Haiku 4.5 with structured outputs + prompt caching
 - ElevenLabs Conversational AI + Twilio native integration
@@ -48,7 +48,8 @@ Every version and API is pinned in `docs/VERIFIED_APIS.md`.
 counter/
 ├── CLAUDE.md                   # Master context — start here
 ├── START_HERE.md               # First 30 min of the hackathon
-├── docs/                       # All planning + reference docs
+├── PRE_HACKATHON.md            # Account setup (before Saturday)
+├── docs/                       # Planning + reference docs
 ├── packages/
 │   ├── types/                  # Shared TS contracts + SQL schema
 │   ├── scraper/                # TinyFish wrapper (Worker 1)
@@ -60,71 +61,88 @@ counter/
 
 ## Running locally
 
-Prerequisites: Node 24 LTS, pnpm 9.15+.
+Prerequisites: **Node 24 LTS**, **pnpm 9.15+**.
 
 ```bash
 # 1. Install dependencies
 pnpm install
 
-# 2. Copy env templates and fill in keys (each app reads its own .env.local)
-cp .env.example .env.local
+# 2. Environment files (never commit real secrets)
+cp .env.example .env.local                    # optional root copy for tooling
 cp apps/voice/.env.local.example apps/voice/.env.local
-# apps/web reads its own .env.local — see "Wiring voice → web" below.
+# Create apps/web/.env.local — copy relevant vars from .env.example (voice URLs, Stripe, etc.)
 
-# 3. Build shared packages
-pnpm -F @counter/types build
-
-# 4. Seed the demo database
+# 3. Seed the demo database
 pnpm seed
 
-# 5. Run the two apps in separate terminals
-pnpm dev:web     # Next.js on :3000
-pnpm dev:voice   # Express on :4000 (needs ngrok tunnel)
+# 4. Run the apps (separate terminals)
+pnpm dev:web     # Next.js → http://localhost:3000
+pnpm dev:voice   # Express → http://localhost:4000
 ```
 
-Open http://localhost:3000/dashboard.
+Open **http://localhost:3000/dashboard**.
 
-For the voice service, in a third terminal:
+Main nav: **Disputes**, **Warnings**, **Live**, **Ops**, **Calls**, **Trust**, **Onboarding**.
+
+### Voice + ngrok (live webhooks / outbound calls)
+
+In another terminal:
+
 ```bash
 ngrok http 4000
 ```
-Copy the `https://...ngrok-free.app` URL and set `NGROK_PUBLIC_URL` in `apps/voice/.env.local`. Update the ElevenLabs agent's webhook URLs to point at the new ngrok URL.
 
-### Wiring voice → web
+Copy the `https://…` forwarding URL into `apps/voice/.env.local` as `NGROK_PUBLIC_URL`, and configure the ElevenLabs agent webhooks to use that base URL.
 
-For real voice escalation (instead of stubbed responses), `apps/web/.env.local` needs:
+### Wiring voice ↔ web
+
+For real escalation from the dashboard (not stubbed), set in **`apps/web/.env.local`**:
 
 ```bash
 VOICE_ESCALATE_URL=http://localhost:4000/calls/outbound
 NEXT_PUBLIC_VOICE_URL=http://localhost:4000
-DOORDASH_SUPPORT_NUMBER=+1XXXXXXXXXX        # E.164, must be in voice's ALLOWED_CALL_NUMBERS
-VOICE_SHARED_SECRET=<same value as apps/voice/.env.local>
+DOORDASH_SUPPORT_NUMBER=+1XXXXXXXXXX    # E.164; must match voice allowlist
+VOICE_SHARED_SECRET=<same as apps/voice>
 ```
 
-Generate a fresh shared secret with `openssl rand -hex 32` and use the **same value** in both `.env.local` files. See "Security" below.
+Generate a shared secret: `openssl rand -hex 32` — use the **same** value in **`apps/voice/.env.local`** and **`apps/web/.env.local`**.
+
+See root **`.env.example`** for the full variable list (`VOICE_SERVICE_URL`, `WEB_ORIGIN` on the voice app, etc.).
+
+### Tests
+
+```bash
+pnpm test:all          # all workspace packages
+pnpm test:demo         # apps/web rehearsal integration test
+pnpm -F @counter/voice test   # voice unit tests (auth, hardening)
+```
 
 ## Security
 
-The voice service intentionally exposes a public ngrok URL during the demo, so it ships with a few hardening gates that you should not turn off:
+The voice service may use a public URL (ngrok) during demos. Hardening:
 
-- **Shared-secret auth** on `/calls/outbound` and `/calls/history` — set `VOICE_SHARED_SECRET` in both `apps/voice/.env.local` **and** `apps/web/.env.local`. Same value on both sides. If unset, the voice service logs a `[auth] UNAUTHENTICATED` warning at boot and skips the check (dev fallback) — never deploy without the secret set.
-- **CORS allowlist** — `WEB_ORIGIN` in `apps/voice/.env.local` (comma-separated) restricts which origins can reach the voice service from a browser. Default `http://localhost:3000`.
-- **Phone-number allowlist** — `ALLOWED_CALL_NUMBERS` in `apps/voice/.env.local` (comma-separated E.164) limits which numbers `/calls/outbound` can dial. Falls back to `DOORDASH_SUPPORT_NUMBER` as a single-number allowlist if unset.
-- **Rate limiting** — `/calls/outbound` is capped at 10 requests / 5 minutes per IP; `/tools/*` at 60/minute. Both enforced unconditionally.
-- **Webhook HMAC** — `/webhooks/elevenlabs/post-call` verifies the `ElevenLabs-Signature` header against `ELEVENLABS_WEBHOOK_SECRET` before mutating any state.
+- **Shared secret** — `VOICE_SHARED_SECRET` in both `apps/voice/.env.local` and `apps/web/.env.local` (`x-counter-token` on server-to-server calls).  
+  - **Development:** if unset, voice logs a warning once and allows requests (local demo).  
+  - **Production** (`NODE_ENV=production` on the voice app): if unset, protected routes return **503** `misconfigured` — outbound calls are blocked until the secret is set.
+- **CORS** — `WEB_ORIGIN` in `apps/voice/.env.local` (comma-separated). Defaults to `http://localhost:3000`.
+- **Phone allowlist** — `ALLOWED_CALL_NUMBERS` or fallback `DOORDASH_SUPPORT_NUMBER` (E.164).
+- **Rate limiting** — `/calls/outbound`: 10 / 5 min per IP; tools: 60 / min.
+- **Webhooks** — `ElevenLabs-Signature` verified with `ELEVENLABS_WEBHOOK_SECRET` before persisting transcripts.
 
-Tests for these gates live in `apps/voice/test/auth.test.ts` and `apps/voice/test/hardening.test.ts`. Run with `pnpm -F @counter/voice test`.
+The **dashboard and Next.js API routes are not authenticated** — suitable for a controlled demo only. Do not expose a production deployment to the open internet without adding auth or network controls.
+
+Tests: `apps/voice/test/auth.test.ts`, `apps/voice/test/hardening.test.ts`.
 
 ## Team
 
-Built at O1 Summit 2026 by a 4-person team working in parallel using Claude Code. Each worker owned one module; shared contracts lived in `packages/types`. See `docs/CLAUDE_CODE_PRACTICES.md` for the workflow.
+Built at O1 Summit 2026 by a 4-person team working in parallel using Claude Code. Shared contracts live in `packages/types`. See `docs/CLAUDE_CODE_PRACTICES.md`.
 
 ## Not included
 
-- Real DoorDash/UberEats/Grubhub scraping against live accounts — we target a mock portal for ToS safety and demo reliability
+- Live scraping of real DoorDash/UberEats/Grubhub accounts — mock portal in `apps/web` for ToS safety and demo reliability
 - Multi-tenant authentication
 - Mobile-responsive UI
-- Real Vanta integration (mocked locally — no self-serve trial available)
+- Real Vanta integration (mocked locally)
 
 ## License
 

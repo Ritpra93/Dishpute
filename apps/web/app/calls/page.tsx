@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { TopNav } from "@/components/top-nav";
 import { StatCard } from "@/components/stat-card";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ import {
 import { CallTranscriptDialog } from "@/components/calls/call-transcript-dialog";
 import { cn } from "@/lib/utils";
 import { formatDuration, formatMoney, relativeTime } from "@/lib/format";
-import type { DisplayCallRecord, CallOutcome } from "@/app/api/calls/route";
+import type { DisplayCallRecord, CallOutcome } from "@counter/types";
 
 interface CallsData {
   calls: DisplayCallRecord[];
@@ -29,23 +29,63 @@ interface CallsData {
 
 type Filter = "all" | "live" | "recovered" | "callback" | "still_denied";
 
+const EMPTY_STATS: CallsData["stats"] = {
+  recovered: 0,
+  successRate: 0,
+  avgDuration: 0,
+  active: 0,
+};
+
 export default function CallsPage() {
   const [data, setData] = useState<CallsData | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<DisplayCallRecord | null>(null);
 
-  useEffect(() => {
+  const fetchCalls = useCallback(() => {
     fetch("/api/calls")
-      .then((r) => r.json())
-      .then(setData);
+      .then(async (r) => {
+        if (!r.ok) {
+          console.warn("[calls] /api/calls failed:", r.status);
+          setData({ calls: [], stats: EMPTY_STATS });
+          return;
+        }
+        const json = (await r.json()) as CallsData;
+        if (Array.isArray(json?.calls) && json?.stats) {
+          setData(json);
+        } else {
+          setData({ calls: [], stats: EMPTY_STATS });
+        }
+      })
+      .catch(() => {
+        setData({ calls: [], stats: EMPTY_STATS });
+      });
   }, []);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchCalls();
+  }, [fetchCalls]);
+
+  // Live refresh while this tab is visible (ops screen — keep list current)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") fetchCalls();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [fetchCalls]);
 
   const filtered = useMemo(() => {
     if (!data) return [];
     return data.calls.filter((c) => {
       if (filter !== "all" && c.outcome !== filter) return false;
-      if (q && !c.transcript.some((t) => t.text.toLowerCase().includes(q.toLowerCase()))) return false;
+      if (
+        q &&
+        !c.transcript.some((t) =>
+          t.text.toLowerCase().includes(q.toLowerCase())
+        )
+      )
+        return false;
       return true;
     });
   }, [data, filter, q]);
@@ -65,7 +105,8 @@ export default function CallsPage() {
             Calls &amp; transcripts
           </h1>
           <p className="text-sm text-foreground/70">
-            When portals say no, Counter calls them. Every call is recorded and reasoned.
+            When portals say no, Counter calls them. Every call is recorded and
+            reasoned.
           </p>
         </div>
 
@@ -115,7 +156,7 @@ export default function CallsPage() {
                   "rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors",
                   filter === k
                     ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:text-foreground",
+                    : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 {label}
@@ -150,7 +191,8 @@ export default function CallsPage() {
                   onClick={() => setSelected(c)}
                   className={cn(
                     "cursor-pointer animate-row-in",
-                    c.outcome === "live" && "border-l-2 border-l-live-pulse bg-denied-bg/30",
+                    c.outcome === "live" &&
+                      "border-l-2 border-l-live-pulse bg-denied-bg/30"
                   )}
                 >
                   <TableCell className="pl-5 text-sm text-muted-foreground">
@@ -163,7 +205,9 @@ export default function CallsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="font-medium tabular-nums">{c.orderId}</div>
-                    <div className="text-xs text-muted-foreground">{c.rep}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {c.rep}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <OutcomePill outcome={c.outcome} />
@@ -181,7 +225,10 @@ export default function CallsPage() {
               ))}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-16 text-center text-sm text-muted-foreground">
+                  <TableCell
+                    colSpan={6}
+                    className="py-16 text-center text-sm text-muted-foreground"
+                  >
                     {data ? "No calls match this filter." : "Loading…"}
                   </TableCell>
                 </TableRow>
@@ -202,14 +249,22 @@ export default function CallsPage() {
 
 function OutcomePill({ outcome }: { outcome: CallOutcome }) {
   const map: Record<CallOutcome, [string, string]> = {
-    live: ["bg-denied-bg text-foreground border border-denied-border/40", "Live"],
+    live: [
+      "bg-denied-bg text-foreground border border-denied-border/40",
+      "Live",
+    ],
     recovered: ["bg-merit-high-bg text-merit-high-fg", "Recovered"],
     callback: ["bg-merit-mid-bg text-merit-mid-fg", "Callback"],
     still_denied: ["bg-secondary text-muted-foreground", "Still denied"],
   };
   const [cls, label] = map[outcome];
   return (
-    <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium", cls)}>
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium",
+        cls
+      )}
+    >
       {label}
     </span>
   );

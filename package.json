@@ -15,6 +15,7 @@
     "dev:web": "pnpm -F @counter/web dev",
     "dev:voice": "pnpm -F @counter/voice dev",
     "seed": "pnpm -F @counter/web seed",
+    "migrate": "pnpm -F @counter/voice exec tsx scripts/migrate-audio-columns.ts",
     "clean": "pnpm -r exec rm -rf dist .next node_modules/.cache"
   },
   "devDependencies": {

@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
+import { ensureVoiceCallsAudioColumns } from "@counter/types";
 
 let db: Database.Database | null = null;
 
@@ -22,6 +23,7 @@ export function getDb(): Database.Database {
       "utf-8"
     );
     db.exec(schema);
+    ensureVoiceCallsAudioColumns(db);
   }
   return db;
 }
@@ -35,6 +37,8 @@ export interface VoiceCallRow {
   transcript_json: string | null;
   call_outcome: string | null;
   recovered_cents: number | null;
+  audio_path: string | null;
+  audio_fetched_at: string | null;
 }
 
 export function listVoiceCalls(): VoiceCallRow[] {
@@ -108,4 +112,36 @@ export function upsertVoiceCall(record: {
     callOutcome: record.callOutcome ?? null,
     recoveredCents: record.recoveredCents ?? null,
   });
+}
+
+
+// ---------------------------------------------------------------------------
+// Worker 5: audio storage tracking
+// ---------------------------------------------------------------------------
+
+export function markAudioStored(opts: {
+  conversationId: string;
+  audioPath: string;
+}): void {
+  getDb()
+    .prepare(
+      `UPDATE voice_calls
+         SET audio_path = @audioPath, audio_fetched_at = @now
+       WHERE eleven_labs_conversation_id = @conversationId`
+    )
+    .run({
+      conversationId: opts.conversationId,
+      audioPath: opts.audioPath,
+      now: new Date().toISOString(),
+    });
+}
+
+export function getAudioPath(conversationId: string): string | null {
+  const row = getDb()
+    .prepare(
+      `SELECT audio_path FROM voice_calls
+       WHERE eleven_labs_conversation_id = ?`
+    )
+    .get(conversationId) as { audio_path: string | null } | undefined;
+  return row?.audio_path ?? null;
 }

@@ -1,28 +1,16 @@
 import { NextResponse } from "next/server";
+import { listVoiceCallsForDisplay } from "@/lib/voice-db";
+import type { DisplayCallRecord } from "@counter/types";
 
-export type CallOutcome = "live" | "recovered" | "callback" | "still_denied";
+// Re-export types for backward compat — existing imports from this file
+// (calls/page.tsx, call-transcript-dialog.tsx) still resolve.
+export type { CallOutcome, TranscriptTurn, DisplayCallRecord } from "@counter/types";
 
-export interface TranscriptTurn {
-  ts: string;
-  role: "agent" | "rep" | "tool";
-  text: string;
-  tool?: string;
-}
-
-export interface DisplayCallRecord {
-  id: string;
-  disputeId: string;
-  orderId: string;
-  startedAt: string;
-  durationSec: number;
-  outcome: CallOutcome;
-  recovered: number;
-  rep?: string;
-  toolsUsed: string[];
-  transcript: TranscriptTurn[];
-}
-
-const CALLS: DisplayCallRecord[] = [
+// ---------------------------------------------------------------------------
+// Fixture fallback: when voice_calls is empty AND we're not in production,
+// serve the old hardcoded data so demo rehearsal still has content.
+// ---------------------------------------------------------------------------
+const FIXTURE_CALLS: DisplayCallRecord[] = [
   {
     id: "call_1",
     disputeId: "disp_25",
@@ -44,6 +32,7 @@ const CALLS: DisplayCallRecord[] = [
       { ts: "01:08", role: "tool", tool: "transfer_to_supervisor", text: "Transferred to supervisor queue." },
       { ts: "01:26", role: "agent", text: "Thanks. We're requesting full reversal of $42.50 plus the courier liability flag." },
     ],
+    audioAvailable: false,
   },
   {
     id: "call_2",
@@ -63,6 +52,7 @@ const CALLS: DisplayCallRecord[] = [
       { ts: "01:02", role: "rep", text: "That confirms it. I'll reverse the charge." },
       { ts: "01:18", role: "tool", tool: "submit_appeal", text: "Appeal accepted. $38.50 credited back." },
     ],
+    audioAvailable: true,
   },
   {
     id: "call_3",
@@ -78,6 +68,7 @@ const CALLS: DisplayCallRecord[] = [
       { ts: "00:02", role: "agent", text: "Calling about HOC-5234 duplicate charge." },
       { ts: "00:30", role: "rep", text: "I need to escalate; you'll get a callback in 24h." },
     ],
+    audioAvailable: false,
   },
   {
     id: "call_4",
@@ -93,6 +84,7 @@ const CALLS: DisplayCallRecord[] = [
       { ts: "00:01", role: "agent", text: "HOC-5228 — courier no-show, requesting refund." },
       { ts: "00:50", role: "rep", text: "Approved." },
     ],
+    audioAvailable: true,
   },
   {
     id: "call_5",
@@ -108,6 +100,7 @@ const CALLS: DisplayCallRecord[] = [
       { ts: "00:01", role: "agent", text: "Appeal HOC-5225 wrong-item." },
       { ts: "01:00", role: "rep", text: "Refunded $17.50." },
     ],
+    audioAvailable: true,
   },
   {
     id: "call_6",
@@ -123,6 +116,7 @@ const CALLS: DisplayCallRecord[] = [
       { ts: "00:01", role: "agent", text: "HOC-5222 cold food appeal." },
       { ts: "01:00", role: "rep", text: "Sustaining denial; outside policy window." },
     ],
+    audioAvailable: false,
   },
   {
     id: "call_7",
@@ -138,6 +132,7 @@ const CALLS: DisplayCallRecord[] = [
       { ts: "00:01", role: "agent", text: "HOC-5219 missing item." },
       { ts: "01:30", role: "rep", text: "Approved $28." },
     ],
+    audioAvailable: true,
   },
   {
     id: "call_8",
@@ -153,18 +148,38 @@ const CALLS: DisplayCallRecord[] = [
       { ts: "00:01", role: "agent", text: "HOC-5216 duplicate." },
       { ts: "01:10", role: "rep", text: "Voided." },
     ],
+    audioAvailable: true,
   },
 ];
 
-export const CALL_STATS = {
-  recovered: +CALLS.reduce((s, c) => s + c.recovered, 0).toFixed(2),
-  successRate: Math.round(
-    (CALLS.filter((c) => c.outcome === "recovered").length / CALLS.length) * 100
-  ),
-  avgDuration: Math.round(CALLS.reduce((s, c) => s + c.durationSec, 0) / CALLS.length),
-  active: CALLS.filter((c) => c.outcome === "live").length,
-};
+function computeStats(calls: DisplayCallRecord[]) {
+  return {
+    recovered: +calls.reduce((s, c) => s + c.recovered, 0).toFixed(2),
+    successRate: calls.length
+      ? Math.round(
+          (calls.filter((c) => c.outcome === "recovered").length / calls.length) * 100
+        )
+      : 0,
+    avgDuration: calls.length
+      ? Math.round(calls.reduce((s, c) => s + c.durationSec, 0) / calls.length)
+      : 0,
+    active: calls.filter((c) => c.outcome === "live").length,
+  };
+}
 
 export async function GET() {
-  return NextResponse.json({ calls: CALLS, stats: CALL_STATS });
+  let calls = listVoiceCallsForDisplay();
+
+  // Fixture fallback for empty DB (demo rehearsal safety)
+  if (
+    calls.length === 0 &&
+    process.env.NODE_ENV !== "production" &&
+    process.env["CALLS_EMPTY_FIXTURE_FALLBACK"] !== "off"
+  ) {
+    console.warn("[calls] no voice_calls rows, serving fixtures");
+    calls = FIXTURE_CALLS;
+  }
+
+  const stats = computeStats(calls);
+  return NextResponse.json({ calls, stats });
 }

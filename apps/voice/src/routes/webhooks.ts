@@ -1,10 +1,61 @@
 import { Router, raw } from "express";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
-import { upsertVoiceCall, getCandidateWithClassification } from "../db";
+import { upsertVoiceCall, getCandidateWithClassification, markAudioStored } from "../db";
 import { config } from "../config";
+import {
+  fetchConversationDetail,
+  fetchConversationAudio,
+  AudioNotYetAvailableError,
+} from "../elevenlabs";
+import { saveAudio } from "../audio-storage";
 
 const router = Router();
 const client = new ElevenLabsClient({ apiKey: config.elevenLabsApiKey });
+
+// ---------------------------------------------------------------------------
+// Background audio fetcher — fire-and-forget after post-call webhook.
+// Polls conversation detail for has_audio === true, then downloads the MP3.
+// Never blocks the webhook response.
+// ---------------------------------------------------------------------------
+async function fetchAndStoreAudio(conversationId: string) {
+  const maxAttempts = 5;
+  const baseDelayMs = 3000;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      // Gate on has_audio from the detail endpoint per VERIFIED_APIS.md
+      const detail = await fetchConversationDetail(conversationId);
+      if (!detail.has_audio) {
+        if (attempt < maxAttempts) {
+          await new Promise((r) => setTimeout(r, baseDelayMs * attempt));
+          continue;
+        }
+        console.warn(
+          `[audio] ${conversationId} has_audio still false after ${maxAttempts} attempts`
+        );
+        return;
+      }
+
+      const bytes = await fetchConversationAudio(conversationId);
+      const { path } = await saveAudio(conversationId, bytes);
+      markAudioStored({ conversationId, audioPath: path });
+      console.log(
+        `[audio] stored ${conversationId} (${bytes.length}b) attempt=${attempt}`
+      );
+      return;
+    } catch (err) {
+      if (err instanceof AudioNotYetAvailableError && attempt < maxAttempts) {
+        await new Promise((r) => setTimeout(r, baseDelayMs * attempt));
+        continue;
+      }
+      console.error(
+        `[audio] failed ${conversationId} attempt=${attempt}:`,
+        err
+      );
+      return;
+    }
+  }
+}
 
 function parseCallOutcome(
   analysis: { call_successful?: string } | undefined
@@ -92,6 +143,10 @@ router.post(
         console.log(
           `[webhook] post_call_transcription — conversation=${conversation_id} candidate=${candidateId} outcome=${callOutcome}`
         );
+
+        // Fire-and-forget: fetch + store audio in the background.
+        // The leading `void` silences no-floating-promises and signals intent.
+        void fetchAndStoreAudio(conversation_id);
       }
 
       res.status(200).json({ status: "ok" });

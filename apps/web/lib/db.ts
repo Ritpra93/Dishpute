@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import path from "node:path";
 import fs from "node:fs";
+import { ensureVoiceCallsAudioColumns } from "@counter/types";
 
 // Shared DB lives at the repo root — apps/web and apps/voice BOTH point here
 // so voice-call records land in the same SQLite file the dashboard reads.
@@ -20,6 +21,7 @@ export function getDb(): Database.Database {
     db.pragma("foreign_keys = ON");
     const schema = fs.readFileSync(SCHEMA_PATH, "utf-8");
     db.exec(schema);
+    ensureVoiceCallsAudioColumns(db);
   }
   return db;
 }

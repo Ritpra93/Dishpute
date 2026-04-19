@@ -145,3 +145,32 @@ export * from "./warnings";
 export * from "./replay";
 export * from "./cost";
 export * from "./menu";
+
+// ---------------------------------------------------------------------------
+// Worker 5: Shared types for the Calls tab (apps/web + apps/voice)
+// ---------------------------------------------------------------------------
+
+export type CallOutcome = "live" | "recovered" | "callback" | "still_denied";
+
+export interface TranscriptTurn {
+  ts: string;
+  role: "agent" | "rep" | "tool";
+  text: string;
+  tool?: string;
+}
+
+export interface DisplayCallRecord {
+  id: string;
+  disputeId: string;
+  orderId: string;
+  startedAt: string;
+  durationSec: number;
+  outcome: CallOutcome;
+  recovered: number;
+  rep?: string;
+  toolsUsed: string[];
+  transcript: TranscriptTurn[];
+  audioAvailable: boolean;
+}
+
+export { ensureVoiceCallsAudioColumns } from "./ensureVoiceCallsAudioColumns";

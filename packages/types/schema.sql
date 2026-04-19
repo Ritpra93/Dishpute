@@ -54,6 +54,9 @@ CREATE TABLE IF NOT EXISTS voice_calls (
   transcript_json TEXT,
   call_outcome TEXT,
   recovered_cents INTEGER,
+  -- Added Worker 5: stores path to downloaded MP3 after post-call webhook.
+  audio_path TEXT,
+  audio_fetched_at TEXT,
   PRIMARY KEY (candidate_id, eleven_labs_conversation_id)
 );
 
