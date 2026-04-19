@@ -544,9 +544,183 @@ URL changes per session — requires re-configuring Twilio/ElevenLabs webhooks. 
 
 ---
 
+## TinyFish — Worker 3 specifics (BATCH / SSE event list / capture / Vault / step-replay)
+
+> Verified live via `https://docs.tinyfish.ai/llms.txt` and the per-endpoint OpenAPI specs on 2026-04-18. These sections fill the Worker 3 gating stubs and supersede earlier guesses.
+
+### BATCH endpoint — `POST /v1/automation/run-batch`
+
+Used by the W2 "fire 30 disputes" button to enqueue many runs at once.
+
+```
+POST https://agent.tinyfish.ai/v1/automation/run-batch
+Headers: X-API-Key: <key>, Content-Type: application/json
+Body:
+  {
+    "runs": [                      // 1..100 entries, atomic create
+      {
+        "url": "https://...",      // required
+        "goal": "...",             // required
+        "browser_profile": "stealth" | "lite",
+        "proxy_config": { "enabled": true, "type": "tetra", "country_code": "US" },
+        "agent_config":  { "mode": "default" | "strict", "max_steps": 1..500 },
+        "capture_config": { "elements": true, "snapshots": true, "screenshots": true, "recording": true },
+        "webhook_url":   "https://...",            // HTTPS only
+        "use_vault":     true,
+        "credential_item_ids": ["cred:conn-abc:..."]
+      }
+    ],
+    "output_schema": {...}                          // optional JSON Schema draft-07
+  }
+
+200 → { "run_ids": ["uuid", ...], "error": null }   // atomic; all-or-nothing
+400 → { "error": { "code": "INVALID_INPUT", "message": "...", "details": null } }
+403 → INSUFFICIENT_CREDITS                           // not enough credits for batch
+```
+
+Error codes returned across all endpoints: `MISSING_API_KEY | INVALID_API_KEY | INVALID_INPUT | RATE_LIMIT_EXCEEDED | INTERNAL_ERROR | UNAUTHORIZED | FORBIDDEN | NOT_FOUND | SERVICE_BUSY | TIMEOUT | INSUFFICIENT_CREDITS | CONTENT_POLICY_VIOLATION | MAX_STEPS_EXCEEDED | SITE_BLOCKED | TASK_FAILED | CANCELLED`.
+
+### SSE event list — `POST /v1/automation/run-sse`
+
+The full set of `data:` event `type` values the W2 grid + W11 replay must handle:
+
+| Type | Required fields | Notes |
+| --- | --- | --- |
+| `STARTED` | `run_id`, `timestamp` | First event of every run |
+| `STREAMING_URL` | `run_id`, `streaming_url`, `timestamp` | Embed in `<iframe>` for live preview |
+| `PROGRESS` | `run_id`, `purpose`, `timestamp`, optional `tinyfish_api: "search" \| "fetch"` | Free-text step description |
+| `TF_API_RESULT` | `run_id`, `tinyfish_api`, `result[]`, `timestamp` | Sub-tool result payload |
+| `HEARTBEAT` | `timestamp` | Periodic keep-alive (no `run_id`) |
+| `COMPLETE` | `run_id`, `status: "COMPLETED" \| "FAILED" \| "CANCELLED"`, `timestamp`, optional `result`, `error`, `help_url`, `help_message` | Terminal event |
+
+**Counter-only synthetic events** (not from TinyFish — emitted by our own classifier wrapper inside the SSE re-broadcast): `STRATEGY_ESCALATED` (when Claude pivots from auto to high-thinking), `FALLBACK_ENGAGED` (when scraper retries with `stealth` profile after a `SITE_BLOCKED`). Documented for the W2 union and W11 timeline markers; never expect TinyFish to emit them.
+
+### `capture_config` (gates W3 evidence)
+
+Optional object on `/run-sse` and `/run-batch`. All flags default false.
+
+```json
+"capture_config": {
+  "elements":    true,   // serialised DOM nodes the agent interacted with
+  "snapshots":   true,   // structured page snapshots per step
+  "screenshots": true,   // base64 JPEGs available via /v1/runs/{id}?screenshots=base64
+  "recording":   true    // full video, fetched via the run's video_url
+}
+```
+
+W3's evidence bundle PDF embeds: cover sheet → final screenshot (from `screenshots`) → DOM-element rows (from `elements`) → recording link (from `video_url`, presigned, **expires after 15 minutes** — re-fetch on demand).
+
+### Vault — `GET /v1/vault/items` + `use_vault` / `credential_item_ids` (gates W5)
+
+Vault is a real product (no longer "open issue"). Counter's onboarding wizard:
+
+1. After Stripe step, calls `GET /v1/vault/items` and shows `{itemId, label, vaultName, domains, hasTotp}` for each.
+2. User picks the DoorDash login → we store the `itemId` (e.g. `cred:conn-abc:Personal:item-123`).
+3. Subsequent `/run-sse` and `/run-batch` calls set `use_vault: true` and `credential_item_ids: [<picked id>]` to pull credentials from the user's password manager without ever holding plaintext.
+
+Connect/sync/disconnect endpoints exist (`POST /v1/vault/connections`, `POST /v1/vault/sync`, `DELETE /v1/vault/connections/{id}`); we only read from `/v1/vault/items` for the demo.
+
+Returns 503 with `{ error.code: "FORBIDDEN" }` if the Vault feature isn't enabled on the account — Counter's W5 wizard falls back to fixture mode in that case.
+
+### Step replay / trace — `GET /v1/runs/{id}?screenshots=base64` (gates W11)
+
+```
+GET https://agent.tinyfish.ai/v1/runs/{id}?screenshots=base64
+```
+
+Response is the full `ReplayArtifact` source for W11's scrubber:
+
+- `status`, `goal`, `created_at`, `started_at`, `finished_at`, `num_of_steps`
+- `result`, `schema_validation` (validation errors per field if `output_schema` was set)
+- `error` (with `category: SYSTEM_FAILURE | AGENT_FAILURE | BILLING_FAILURE | UNKNOWN` and `retry_after`)
+- `streaming_url` (live only)
+- `video_url` — presigned; **15-minute expiry**
+- `steps[]` — per-step `{id, timestamp, status, action, screenshot (base64 JPEG), duration}`
+
+Without `?screenshots=base64`, `steps[].screenshot` is `null` (smaller payload — use for the timeline list, then lazy-load the image when a step is clicked).
+
+**Source:** `https://docs.tinyfish.ai/api-reference/automation/start-multiple-automations-asynchronously.md`, `/run-browser-automation-with-sse-streaming.md`, `/vault/list-vault-items.md`, `/runs/get-run-by-id.md` (all fetched 2026-04-18).
+
+---
+
+## Stripe Connect — `transfer.created` payload + webhook signing (test mode, gates W8)
+
+> Verified live via `https://stripe.com/docs/api/transfers/object` and `https://docs.stripe.com/connect/webhooks` on 2026-04-18.
+
+### Transfer object (data.object on `transfer.created`)
+
+```json
+{
+  "id": "tr_1MiN3gLkdIwHu7ixNCZvFdgA",
+  "object": "transfer",
+  "amount": 89200,                                  // smallest unit (cents)
+  "amount_reversed": 0,
+  "balance_transaction": "txn_...",
+  "created": 1678043844,                            // unix seconds
+  "currency": "usd",
+  "description": null,
+  "destination": "acct_1MTfjCQ9PRzxEwkZ",           // connected account id
+  "destination_payment": "py_...",                  // populated when destination is a Stripe account
+  "livemode": false,                                // true in production keys
+  "metadata": {},                                   // we set { candidate_id: "disp_NNNN" } here
+  "reversals": { "object": "list", "data": [], "has_more": false, "total_count": 0, "url": "/v1/transfers/.../reversals" },
+  "reversed": false,
+  "source_transaction": null,
+  "source_type": "card",                            // card | fpx | bank_account
+  "transfer_group": "ORDER_95"                      // we set this to candidate id for grouping
+}
+```
+
+### Webhook envelope (Connect)
+
+Connect events have a **top-level `account`** property identifying the connected account. The webhook URL must be registered with `connect: true` (or "Events on Connected accounts" in the Dashboard). Sandbox accounts need separate endpoints — production endpoints receive both live and test events, so always check `livemode`.
+
+```json
+{
+  "id": "evt_...",
+  "object": "event",
+  "type": "transfer.created",
+  "livemode": false,
+  "account": "acct_...",
+  "pending_webhooks": 1,
+  "created": 1349654313,
+  "data": { "object": { /* the Transfer object above */ } }
+}
+```
+
+### Signature verification (use the SDK)
+
+```ts
+import Stripe from "stripe";
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+// raw bytes — do NOT JSON.parse before verifying
+const event = stripe.webhooks.constructEvent(
+  rawBody,                                           // string | Buffer
+  request.headers.get("stripe-signature")!,
+  process.env.STRIPE_WEBHOOK_SECRET!                 // whsec_...
+);
+```
+
+Throws `Stripe.errors.StripeSignatureVerificationError` on mismatch — return 400. Always read the body as raw bytes (in Next.js App Router: `await request.text()`); do NOT parse first.
+
+### Local testing without an open ngrok
+
+```bash
+stripe login
+stripe listen --forward-to localhost:3000/api/stripe/webhook
+# In another shell, fire a test event:
+stripe trigger transfer.created
+```
+
+For Connect-scoped events, use `--forward-connect-to` and `--stripe-account` flags.
+
+**Source:** `https://stripe.com/docs/api/transfers/object`, `https://docs.stripe.com/connect/webhooks` (fetched 2026-04-18).
+
+---
+
 ## Open issues flagged during research
 
-- **TinyFish Vault API** for secure credential storage — not publicly documented. We use plaintext in goal strings for the hackathon. Fine for a mock portal; unsafe in production.
+- ~~**TinyFish Vault API** for secure credential storage — not publicly documented.~~ Resolved 2026-04-18: Vault is now publicly documented. See the TinyFish Worker 3 specifics section. We still default to fixture mode for the hackathon and only flip to live Vault when a real provider is connected.
 - **ElevenLabs concurrency caps** on free tier — not fully published. Test Friday.
 - **Twilio outbound to unverified numbers requires paid upgrade** — done in PRE_HACKATHON step 1.
 
