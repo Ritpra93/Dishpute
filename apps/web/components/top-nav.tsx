@@ -6,10 +6,13 @@ import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/dashboard", label: "Disputes" },
+  { href: "/warnings", label: "Warnings" },
+  { href: "/live", label: "Live" },
+  { href: "/ops", label: "Ops" },
   { href: "/calls", label: "Calls" },
+  { href: "/pnl", label: "P&L" },
   { href: "/trust", label: "Trust" },
   { href: "/onboarding", label: "Onboarding" },
-  { href: "/mock-portal/disputes", label: "Mock portal" },
 ] as const;
 
 export function TopNav() {

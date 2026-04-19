@@ -1,7 +1,15 @@
 import type { DisputeCandidate, ClassifiedDispute } from '@counter/types';
-import { CLASSIFIER_CONCURRENCY } from '@counter/types';
+import { CLASSIFIER_CONCURRENCY, VOICE_ESCALATION_MIN_MERIT } from '@counter/types';
 import { buildMockClassification } from './mock';
-import { initClient, prefilterWithHaiku, classifyWithSonnet } from './claude';
+import {
+  initClient,
+  prefilterWithHaiku,
+  classifyWithSonnet,
+  triageWithHaiku,
+  assembleEvidenceWithHaiku,
+  draftWithSonnet,
+  negotiateWithHaiku,
+} from './claude';
 
 export interface Classifier {
   classify(candidate: DisputeCandidate): Promise<ClassifiedDispute>;
@@ -10,8 +18,6 @@ export interface Classifier {
 
 // ─── concurrency helper ───────────────────────────────────────────────────────
 
-// Runs fn over items with at most `limit` concurrent calls. Preserves order.
-// CLASSIFIER_CONCURRENCY = 10 — change that constant (in @counter/types) to tune.
 async function runConcurrent(
   items: DisputeCandidate[],
   limit: number,
@@ -32,7 +38,7 @@ async function runConcurrent(
   return results;
 }
 
-// ─── skipped classification (Haiku said not worth disputing) ──────────────────
+// ─── skipped classification (triage said not worth disputing) ─────────────────
 
 function buildSkippedClassification(
   candidate: DisputeCandidate,
@@ -75,6 +81,11 @@ export function createMockClassifier(opts: MockClassifierOptions = {}): Classifi
   };
 }
 
+/**
+ * Legacy classifier — 2-step pipeline (Haiku prefilter → Sonnet classify).
+ * Kept for backward compatibility. Use createDagClassifier() for the full
+ * 4-agent DAG.
+ */
 export function createClassifier({ anthropicApiKey }: { anthropicApiKey: string }): Classifier {
   initClient(anthropicApiKey);
 
@@ -91,6 +102,52 @@ export function createClassifier({ anthropicApiKey }: { anthropicApiKey: string 
       candidateId: candidate.id,
       generatedAt: new Date().toISOString(),
     };
+  }
+
+  return {
+    classify,
+    async classifyMany(candidates) {
+      return runConcurrent(candidates, CLASSIFIER_CONCURRENCY, classify);
+    },
+  };
+}
+
+/**
+ * 4-agent DAG classifier:
+ *   ① Classifier (Haiku) → ② Evidence (Haiku) → ③ Submitter (Sonnet) → ④ Negotiator (Haiku)
+ *
+ * The Negotiator only runs for candidates with meritScore >= VOICE_ESCALATION_MIN_MERIT.
+ * Its output is attached as `negotiatorOutput` on the ClassifiedDispute.
+ */
+export function createDagClassifier({ anthropicApiKey }: { anthropicApiKey: string }): Classifier {
+  initClient(anthropicApiKey);
+
+  async function classify(candidate: DisputeCandidate): Promise<ClassifiedDispute> {
+    // ① Triage — Haiku fast-path
+    const triage = await triageWithHaiku(candidate);
+
+    if (!triage.shouldDispute) {
+      return buildSkippedClassification(candidate, triage.quickReasoning);
+    }
+
+    // ② Evidence assembly — Haiku
+    const evidence = await assembleEvidenceWithHaiku(candidate, triage);
+
+    // ③ Draft — Sonnet (the expensive, high-quality call)
+    const draft = await draftWithSonnet(candidate, triage, evidence);
+
+    const result: ClassifiedDispute = {
+      ...draft,
+      candidateId: candidate.id,
+      generatedAt: new Date().toISOString(),
+    };
+
+    // ④ Negotiator — Haiku (only for escalation-eligible disputes)
+    if (result.meritScore >= VOICE_ESCALATION_MIN_MERIT) {
+      result.negotiatorOutput = await negotiateWithHaiku(candidate, draft);
+    }
+
+    return result;
   }
 
   return {

@@ -70,3 +70,86 @@ export const PREFILTER_SCHEMA = {
   required: ['worthDisputing', 'quickReason'],
   additionalProperties: false,
 } as const;
+
+// ─── Multi-agent DAG schemas ─────────────────────────────────────────────────
+
+/**
+ * Classifier Agent (Haiku 4.5) — fast triage + merit scoring.
+ * Decides whether to proceed with the expensive Sonnet draft.
+ */
+export const CLASSIFIER_TRIAGE_SCHEMA = {
+  type: 'object',
+  properties: {
+    shouldDispute: { type: 'boolean' },
+    meritScore: { type: 'integer', minimum: 0, maximum: 100 },
+    resolvedChargeType: {
+      type: 'string',
+      enum: [
+        'missing_item',
+        'wrong_item',
+        'order_never_arrived',
+        'cold_food',
+        'customer_cancel',
+        'unknown',
+      ],
+    },
+    quickReasoning: { type: 'string', maxLength: 300 },
+  },
+  required: ['shouldDispute', 'meritScore', 'resolvedChargeType', 'quickReasoning'],
+  additionalProperties: false,
+} as const;
+
+/**
+ * Evidence Agent (Haiku 4.5) — assembles and annotates evidence.
+ */
+export const EVIDENCE_SCHEMA = {
+  type: 'object',
+  properties: {
+    evidencePack: {
+      type: 'string',
+      maxLength: 2000,
+    },
+    citations: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          fact: { type: 'string' },
+          source: { type: 'string' },
+          strength: { type: 'string', enum: ['strong', 'moderate', 'weak'] },
+        },
+        required: ['fact', 'source', 'strength'],
+        additionalProperties: false,
+      },
+      minItems: 1,
+      maxItems: 5,
+    },
+    customerRiskSignals: {
+      type: 'array',
+      items: { type: 'string' },
+      maxItems: 5,
+    },
+  },
+  required: ['evidencePack', 'citations', 'customerRiskSignals'],
+  additionalProperties: false,
+} as const;
+
+/**
+ * Negotiator Agent (Haiku 4.5) — pre-computes voice escalation talking points.
+ */
+export const NEGOTIATOR_SCHEMA = {
+  type: 'object',
+  properties: {
+    escalationTalkingPoints: {
+      type: 'array',
+      items: { type: 'string' },
+      minItems: 2,
+      maxItems: 5,
+    },
+    openingStatement: { type: 'string', maxLength: 500 },
+    fallbackPosition: { type: 'string', maxLength: 300 },
+    maxConcession: { type: 'string', maxLength: 200 },
+  },
+  required: ['escalationTalkingPoints', 'openingStatement', 'fallbackPosition', 'maxConcession'],
+  additionalProperties: false,
+} as const;

@@ -10,6 +10,9 @@ import {
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EvidencePreviewDialog } from "./evidence-preview-dialog";
+import { ReasoningPanel } from "./reasoning-panel";
+import { Brain, FileText } from "lucide-react";
 import { MeritBadge } from "./merit-badge";
 import { StatusBadge } from "./status-badge";
 import { PlatformPill, ChargeTypeLabel } from "./badges";
@@ -97,6 +100,8 @@ export function DisputeDetailSheet({
     open && escalateToVoice
   );
   const [callStarted, setCallStarted] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [reasoningOpen, setReasoningOpen] = useState(false);
   if (!dispute) return null;
   const c = dispute.classification;
   const isDenied = dispute.outcome?.outcome === "denied";
@@ -153,6 +158,15 @@ export function DisputeDetailSheet({
             <>
               <Section title="Reasoning">
                 <p className="leading-relaxed text-muted-foreground">{c.reasoning}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => setReasoningOpen(true)}
+                >
+                  <Brain className="size-3.5" />
+                  Show full thinking stream
+                </Button>
               </Section>
 
               <Section title="Drafted dispute">
@@ -170,6 +184,15 @@ export function DisputeDetailSheet({
                     </li>
                   ))}
                 </ul>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => setPreviewOpen(true)}
+                >
+                  <FileText className="size-3.5" />
+                  Preview evidence packet
+                </Button>
               </Section>
             </>
           )}
@@ -286,6 +309,17 @@ export function DisputeDetailSheet({
 
         </div>
       </SheetContent>
+
+      <EvidencePreviewDialog
+        disputeId={dispute.id}
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+      />
+      <ReasoningPanel
+        candidateId={dispute.id}
+        open={reasoningOpen}
+        onOpenChange={setReasoningOpen}
+      />
     </Sheet>
   );
 }

@@ -93,6 +93,16 @@ export function createMockScraper(opts?: { latencyMs?: number }): Scraper {
       return result;
     },
 
+    async submitBatch(items) {
+      await sleep(Math.min(600, latency / 2));
+      return items.map(({ candidate }) => ({
+        candidateId: candidate.id,
+        submittedAt: new Date().toISOString(),
+        status: "submitted" as const,
+        platformConfirmationId: `CONF-${Math.floor(100000 + Math.random() * 900000)}`,
+      }));
+    },
+
     async scrapeOutcomes(opts) {
       await sleep(Math.min(600, latency / 2));
       return opts.candidateIds.map((id) => {

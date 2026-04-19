@@ -57,6 +57,21 @@ CREATE TABLE IF NOT EXISTS voice_calls (
   PRIMARY KEY (candidate_id, eleven_labs_conversation_id)
 );
 
+-- Stripe Connect recovered-funds ledger. Populated by the
+-- /api/stripe/webhook handler on `transfer.created` (W8).
+CREATE TABLE IF NOT EXISTS recovered_transfers (
+  id TEXT PRIMARY KEY,                  -- Stripe transfer id (tr_...)
+  candidate_id TEXT,                    -- nullable — not every transfer maps to a dispute
+  amount_cents INTEGER NOT NULL,
+  currency TEXT NOT NULL,
+  destination TEXT,                     -- destination connected account
+  arrived_at TEXT NOT NULL,
+  livemode INTEGER NOT NULL DEFAULT 0,
+  raw_event_id TEXT NOT NULL UNIQUE,
+  raw_payload_json TEXT NOT NULL
+);
+
 -- Indexes for dashboard queries
 CREATE INDEX IF NOT EXISTS idx_disputes_by_deadline ON dispute_candidates(dispute_deadline);
 CREATE INDEX IF NOT EXISTS idx_outcomes_by_escalate ON outcomes(escalate_to_voice);
+CREATE INDEX IF NOT EXISTS idx_recovered_transfers_arrived ON recovered_transfers(arrived_at);

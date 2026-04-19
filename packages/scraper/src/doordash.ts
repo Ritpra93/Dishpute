@@ -5,9 +5,10 @@
 //   - "Dispute charge" button → form "Your response" field → "Submit dispute" button
 //   - Confirmation ID format: CONF-XXXXXX
 
-import type { DisputeCandidate, ErrorChargeType, SubmissionResult } from "@counter/types";
+import type { DisputeCandidate, ErrorChargeType, SubmissionResult, TinyFishEvent } from "@counter/types";
 import { FIXTURE_DISPUTES } from "@counter/types";
 import { runTinyFish } from "./tinyfish";
+import { runWithRetry, runWithRetryResult } from "./retry";
 
 const MOCK_PORTAL_URL = process.env["MOCK_PORTAL_URL"] ?? "http://localhost:3000/mock-portal/disputes";
 
@@ -77,8 +78,7 @@ function normalizeToCanonicalShape(raw: unknown): DisputeCandidate[] {
   });
 }
 
-export async function listOpenDisputes(): Promise<DisputeCandidate[]> {
-  const goal = `
+const LIST_GOAL = `
 Navigate to the disputes table at this URL.
 For each row in the table, extract the following data attributes:
 - dispute_id (from data-dispute-id attribute)
@@ -105,29 +105,50 @@ Return ONLY a JSON array with this shape (no commentary, no markdown):
 }]
 `;
 
-  let raw: unknown;
-  try {
-    raw = await runTinyFish({ url: MOCK_PORTAL_URL, goal, browser_profile: "lite" });
-  } catch (_firstErr) {
-    // Retry once with stealth profile
-    try {
-      raw = await runTinyFish({ url: MOCK_PORTAL_URL, goal, browser_profile: "stealth" });
-    } catch (_secondErr) {
-      if (process.env["SCRAPER_MODE"] === "cache") {
-        return FIXTURE_DISPUTES;
-      }
-      throw _secondErr;
-    }
+/**
+ * List open disputes using the S3 self-healing retry chain.
+ * Returns { disputes, events } so callers can forward the event log.
+ */
+export async function listOpenDisputesWithEvents(): Promise<{
+  disputes: DisputeCandidate[];
+  events: TinyFishEvent[];
+}> {
+  const { result, events, usedCache } = await runWithRetryResult({
+    params: { url: MOCK_PORTAL_URL, goal: LIST_GOAL },
+    runId: `run_list_${Date.now()}`,
+    strategies: ["lite", "stealth", "cache"],
+  });
+
+  if (usedCache) {
+    return { disputes: FIXTURE_DISPUTES.map((d) => ({ ...d })), events };
   }
 
-  const parsed = normalizeToCanonicalShape(raw);
-  if (parsed.length === 0) {
-    if (process.env["SCRAPER_MODE"] === "cache") {
-      return FIXTURE_DISPUTES;
-    }
-    // Return empty — let caller decide
+  const parsed = normalizeToCanonicalShape(result);
+  if (parsed.length === 0 && process.env["SCRAPER_MODE"] === "cache") {
+    return { disputes: FIXTURE_DISPUTES.map((d) => ({ ...d })), events };
   }
-  return parsed;
+  return { disputes: parsed, events };
+}
+
+/** Backward-compatible wrapper — returns just the disputes array. */
+export async function listOpenDisputes(): Promise<DisputeCandidate[]> {
+  const { disputes } = await listOpenDisputesWithEvents();
+  return disputes;
+}
+
+/**
+ * SSE generator variant — yields every TinyFishEvent from the retry chain,
+ * then yields a final synthetic event with the parsed disputes.
+ * This is what W2's live grid consumes.
+ */
+export async function* listOpenDisputesSSE(): AsyncGenerator<TinyFishEvent> {
+  for await (const evt of runWithRetry({
+    params: { url: MOCK_PORTAL_URL, goal: LIST_GOAL },
+    runId: `run_list_${Date.now()}`,
+    strategies: ["lite", "stealth", "cache"],
+  })) {
+    yield evt as TinyFishEvent;
+  }
 }
 
 export async function submitDispute(opts: {
@@ -163,7 +184,6 @@ Return ONLY a JSON object: { "confirmationId": string }
 export async function scrapeOutcomes(opts: {
   candidateIds: string[];
 }): Promise<Array<{ candidateId: string; outcome: "approved" | "denied" | "pending"; refundedCents: number }>> {
-  // One TinyFish call to read the outcomes table for all matching IDs
   const idList = opts.candidateIds.join(", ");
   const goal = `
 Navigate to ${MOCK_PORTAL_URL}.

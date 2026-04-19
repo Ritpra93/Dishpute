@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -21,7 +22,11 @@ import {
 } from "@/components/ui/table";
 import { TopNav } from "@/components/top-nav";
 import { StatCard } from "@/components/stat-card";
+import { WarningsFeed } from "@/components/warnings/warnings-feed";
+import { FIXTURE_WARNINGS } from "@/lib/fixtures/warnings";
 import { DollarCounter } from "./dollar-counter";
+import { RecoveredToday } from "./recovered-today";
+import { CostBadge } from "./cost-badge";
 import { MeritBadge } from "./merit-badge";
 import { StatusBadge } from "./status-badge";
 import { PlatformPill, ChargeTypeLabel } from "./badges";
@@ -207,6 +212,10 @@ export function DashboardClient({ initialDisputes, initialStats }: Props) {
             delta={-4}
             sublabel={`${escalateCandidates.length} cases ready to escalate`}
           />
+        </div>
+
+        <div className="mt-3">
+          <RecoveredToday />
         </div>
 
         {/* Charge breakdown spectrum strip */}
@@ -420,6 +429,44 @@ export function DashboardClient({ initialDisputes, initialStats }: Props) {
           )}
         </div>
 
+        {/* Pre-dispute early warnings */}
+        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
+          <div className="glass rounded-2xl p-5">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Early warnings
+                </div>
+                <div className="text-sm text-foreground/80">
+                  Charges Counter is staging evidence for before they land.
+                </div>
+              </div>
+              <Link
+                href="/warnings"
+                className="text-xs font-semibold text-money hover:underline"
+              >
+                See all →
+              </Link>
+            </div>
+            <WarningsFeed
+              initial={FIXTURE_WARNINGS.slice(0, 3)}
+              live={false}
+              variant="compact"
+            />
+          </div>
+
+          <div className="glass rounded-2xl p-5">
+            <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Why pre-dispute matters
+            </div>
+            <p className="mt-2 text-sm text-foreground/80">
+              Filing within the auto-refund window converts ~3× better than
+              filing after. Counter listens for the trigger and stages evidence
+              before it lands.
+            </p>
+          </div>
+        </div>
+
         {/* Voice escalation queue */}
         {denied.length > 0 && (
           <div className="glass mt-6 rounded-2xl p-5 ring-1 ring-denied-border/30">
@@ -472,6 +519,22 @@ export function DashboardClient({ initialDisputes, initialStats }: Props) {
             </div>
           </div>
         )}
+        <footer className="mt-16 flex flex-col items-start justify-between gap-3 border-t border-border/40 pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center">
+          <div>
+            Counter is API-proof — we drive the same browser the merchant does.{" "}
+            <Link
+              href="/why"
+              className="font-semibold text-foreground underline-offset-4 hover:underline"
+            >
+              Why this matters →
+            </Link>
+          </div>
+          <div className="flex gap-4">
+            <Link href="/why" className="hover:text-foreground">Why Counter</Link>
+            <Link href="/pnl" className="hover:text-foreground">P&amp;L</Link>
+            <Link href="/trust" className="hover:text-foreground">Trust</Link>
+          </div>
+        </footer>
       </main>
 
       <DisputeDetailSheet
@@ -481,6 +544,8 @@ export function DashboardClient({ initialDisputes, initialStats }: Props) {
         onEscalate={onEscalate}
         isEscalating={escalatingId !== null}
       />
+
+      <CostBadge />
     </div>
   );
 }
