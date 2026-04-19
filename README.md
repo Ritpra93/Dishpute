@@ -1,4 +1,4 @@
-# Counter
+# Dishpute
 
 **Agentic dispute assistant for restaurants on food delivery platforms.**
 
