@@ -57,6 +57,20 @@ beforeAll(async () => {
       )`,
     )
     .run();
+
+  // Seed a classification so tools/lookup_case can return real charge data
+  // and the webhook's recoveredCents roll-up path has a recoverable amount.
+  getDb()
+    .prepare(
+      `INSERT OR IGNORE INTO classifications (
+        candidate_id, should_dispute, merit_score, reasoning, resolved_charge_type,
+        recoverable_cents, drafted_dispute_text, evidence_citations_json, generated_at
+      ) VALUES (
+        'disp_smoke_test', 1, 85, 'POS confirms items packed and dispatched.',
+        'missing_item', 900, 'Drafted text.', '[]', '2026-04-18T00:00:00Z'
+      )`,
+    )
+    .run();
 });
 
 afterAll(async () => {
@@ -224,5 +238,90 @@ describe("POST /webhooks/elevenlabs/post-call", () => {
       body: JSON.stringify({ type: "noop", data: {} }),
     });
     expect(res.status).toBe(200);
+  });
+
+  it("recovered outcome writes the classification's recoverable_cents into voice_calls", async () => {
+    const event = {
+      type: "post_call_transcription",
+      event_timestamp: Math.floor(Date.now() / 1000),
+      data: {
+        conversation_id: "conv_recov_1",
+        agent_id: "agent_test",
+        status: "done",
+        transcript: [],
+        analysis: { call_successful: "success" },
+        conversation_initiation_client_data: {
+          dynamic_variables: { case_id: "disp_smoke_test" },
+        },
+      },
+    };
+    const res = await fetch(`${baseUrl}/webhooks/elevenlabs/post-call`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "ElevenLabs-Signature": "test-sig-mocked",
+      },
+      body: JSON.stringify(event),
+    });
+    expect(res.status).toBe(200);
+
+    const row = getDb()
+      .prepare(
+        `SELECT recovered_cents, call_outcome FROM voice_calls
+         WHERE eleven_labs_conversation_id = ?`,
+      )
+      .get("conv_recov_1") as
+      | { recovered_cents: number | null; call_outcome: string | null }
+      | undefined;
+    expect(row?.call_outcome).toBe("recovered");
+    // classification seeded with recoverable_cents = 900
+    expect(row?.recovered_cents).toBe(900);
+  });
+});
+
+describe("GET /calls/history", () => {
+  it("returns the voice_calls rows in reverse-chronological order", async () => {
+    const res = await fetch(`${baseUrl}/calls/history`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Array<{
+      candidateId: string;
+      elevenLabsConversationId: string;
+      transcript: unknown;
+    }>;
+    expect(Array.isArray(body)).toBe(true);
+    // The two webhook tests above seeded rows for disp_smoke_test.
+    expect(body.length).toBeGreaterThanOrEqual(1);
+    expect(body[0].candidateId).toBe("disp_smoke_test");
+  });
+});
+
+describe("GET /calls/status/:candidateId", () => {
+  it("returns the latest call for a candidate", async () => {
+    const res = await fetch(`${baseUrl}/calls/status/disp_smoke_test`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { candidateId: string; transcript: unknown };
+    expect(body.candidateId).toBe("disp_smoke_test");
+  });
+
+  it("returns 404 when no call exists for the candidate", async () => {
+    const res = await fetch(`${baseUrl}/calls/status/disp_no_such_id`);
+    expect(res.status).toBe(404);
+  });
+});
+
+describe("POST /tools/lookup_case (DB-backed)", () => {
+  it("returns real charge data for a seeded case ID", async () => {
+    const res = await fetch(`${baseUrl}/tools/lookup_case`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ caseId: "disp_smoke_test" }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.caseNumber).toBe("disp_smoke_test");
+    // charge_amount_cents = 1000 → "$10.00"
+    expect(body.chargeAmount).toBe("$10.00");
+    expect(body.chargeType).toBe("missing_item");
+    expect(body.evidenceSummary).toContain("POS");
   });
 });

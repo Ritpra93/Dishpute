@@ -1,9 +1,17 @@
 import { Router } from "express";
+import { getCandidateWithClassification } from "../db";
 
 const router = Router();
 
 // All tool endpoints must return 200 in under 1.5s — even on error.
 // ElevenLabs does NOT retry 4xx; a crash here = dead air on stage.
+
+const FIXTURE_EVIDENCE =
+  "POS record confirms all items dispatched. Kitchen pickup photo timestamped 19:42 shows complete order. Driver log confirms delivery at 19:58 with no redelivery requests.";
+
+function formatCents(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
 
 router.post("/tools/lookup_case", (req, res) => {
   const { caseId } = req.body as { caseId?: string };
@@ -16,15 +24,30 @@ router.post("/tools/lookup_case", (req, res) => {
     return;
   }
 
-  // In a full integration this would query the shared SQLite DB.
-  // For the demo, return realistic fixture data keyed to our demo cases.
+  try {
+    const row = getCandidateWithClassification(caseId);
+    if (row) {
+      res.json({
+        caseNumber: caseId,
+        merchantName: "House of Curry",
+        chargeAmount: formatCents(row.charge_amount_cents),
+        chargeType: row.charge_type,
+        evidenceSummary: row.reasoning ?? FIXTURE_EVIDENCE,
+      });
+      return;
+    }
+  } catch (err) {
+    console.error("[tools/lookup_case] DB error:", err);
+  }
+
+  // Fixture fallback — case not in DB (e.g. ElevenLabs testing a stale ID).
+  // Must still return 200 with speakable content so the agent doesn't stall.
   res.json({
     caseNumber: caseId,
     merchantName: "House of Curry",
     chargeAmount: "$49.20",
     denialReason: "Insufficient evidence provided at time of dispute",
-    evidenceSummary:
-      "POS record confirms all items dispatched. Kitchen pickup photo timestamped 19:42 shows complete order. Driver log confirms delivery at 19:58 with no redelivery requests.",
+    evidenceSummary: FIXTURE_EVIDENCE,
   });
 });
 
