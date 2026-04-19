@@ -1,11 +1,23 @@
-import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 export function MeritBadge({ score }: { score: number }) {
   if (score >= 70) {
-    return <Badge variant="money">Strong · {score}</Badge>;
+    return (
+      <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium", "bg-merit-high-bg text-merit-high-fg")}>
+        High merit
+      </span>
+    );
   }
   if (score >= 40) {
-    return <Badge variant="warning">Review · {score}</Badge>;
+    return (
+      <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium", "bg-merit-mid-bg text-merit-mid-fg")}>
+        Mid merit
+      </span>
+    );
   }
-  return <Badge variant="muted">Skip · {score}</Badge>;
+  return (
+    <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium", "bg-merit-low-bg text-merit-low-fg")}>
+      Low merit
+    </span>
+  );
 }
