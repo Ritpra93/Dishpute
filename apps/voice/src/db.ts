@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
+import { ensureVoiceCallsAudioColumns } from "@counter/types";
 
 let db: Database.Database | null = null;
 
@@ -22,6 +23,7 @@ export function getDb(): Database.Database {
       "utf-8"
     );
     db.exec(schema);
+    ensureVoiceCallsAudioColumns(db);
   }
   return db;
 }

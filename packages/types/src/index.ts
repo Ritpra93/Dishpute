@@ -172,3 +172,5 @@ export interface DisplayCallRecord {
   transcript: TranscriptTurn[];
   audioAvailable: boolean;
 }
+
+export { ensureVoiceCallsAudioColumns } from "./ensureVoiceCallsAudioColumns";

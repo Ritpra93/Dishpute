@@ -531,7 +531,6 @@ export function DashboardClient({ initialDisputes, initialStats }: Props) {
           </div>
           <div className="flex gap-4">
             <Link href="/why" className="hover:text-foreground">Why Counter</Link>
-            <Link href="/pnl" className="hover:text-foreground">P&amp;L</Link>
             <Link href="/trust" className="hover:text-foreground">Trust</Link>
           </div>
         </footer>

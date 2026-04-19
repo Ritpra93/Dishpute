@@ -32,12 +32,14 @@ function makeRes(): Response & { _status: number; _body: unknown } {
 
 afterEach(() => {
   delete process.env.VOICE_SHARED_SECRET;
+  process.env.NODE_ENV = "test";
   vi.resetModules();
 });
 
 describe("requireSharedSecret middleware", () => {
   it("calls next() when VOICE_SHARED_SECRET is unset (dev fallback)", async () => {
     delete process.env.VOICE_SHARED_SECRET;
+    process.env.NODE_ENV = "development";
     const { requireSharedSecret } = await import("../src/middleware/auth");
     const req = makeReq();
     const res = makeRes();
@@ -68,6 +70,19 @@ describe("requireSharedSecret middleware", () => {
     requireSharedSecret(req, res, next);
     expect(next).not.toHaveBeenCalled();
     expect(res._status).toBe(401);
+  });
+
+  it("returns 503 when production and VOICE_SHARED_SECRET unset", async () => {
+    process.env.NODE_ENV = "production";
+    delete process.env.VOICE_SHARED_SECRET;
+    const { requireSharedSecret } = await import("../src/middleware/auth");
+    const req = makeReq();
+    const res = makeRes();
+    const next = vi.fn() as NextFunction;
+    requireSharedSecret(req, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res._status).toBe(503);
+    expect(res._body).toMatchObject({ error: "misconfigured" });
   });
 
   it("calls next() when header matches the secret", async () => {

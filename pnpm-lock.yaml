@@ -14,6 +14,9 @@ importers:
 
   apps/voice:
     dependencies:
+      '@counter/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       '@elevenlabs/elevenlabs-js':
         specifier: ^2.0.0
         version: 2.43.0

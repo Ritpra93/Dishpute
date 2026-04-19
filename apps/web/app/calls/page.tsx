@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { TopNav } from "@/components/top-nav";
 import { StatCard } from "@/components/stat-card";
 import { Input } from "@/components/ui/input";
@@ -29,18 +29,37 @@ interface CallsData {
 
 type Filter = "all" | "live" | "recovered" | "callback" | "still_denied";
 
+const EMPTY_STATS: CallsData["stats"] = {
+  recovered: 0,
+  successRate: 0,
+  avgDuration: 0,
+  active: 0,
+};
+
 export default function CallsPage() {
   const [data, setData] = useState<CallsData | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<DisplayCallRecord | null>(null);
-  const openedAtRef = useRef(Date.now());
 
   const fetchCalls = useCallback(() => {
     fetch("/api/calls")
-      .then((r) => r.json())
-      .then(setData)
-      .catch(() => {});
+      .then(async (r) => {
+        if (!r.ok) {
+          console.warn("[calls] /api/calls failed:", r.status);
+          setData({ calls: [], stats: EMPTY_STATS });
+          return;
+        }
+        const json = (await r.json()) as CallsData;
+        if (Array.isArray(json?.calls) && json?.stats) {
+          setData(json);
+        } else {
+          setData({ calls: [], stats: EMPTY_STATS });
+        }
+      })
+      .catch(() => {
+        setData({ calls: [], stats: EMPTY_STATS });
+      });
   }, []);
 
   // Initial fetch
@@ -48,22 +67,13 @@ export default function CallsPage() {
     fetchCalls();
   }, [fetchCalls]);
 
-  // Auto-refresh polling: 3s interval while tab is visible AND
-  // (at least one live call OR page opened < 60s ago)
+  // Live refresh while this tab is visible (ops screen — keep list current)
   useEffect(() => {
     const interval = setInterval(() => {
-      if (document.visibilityState !== "visible") return;
-
-      const hasLive = data?.calls.some((c) => c.outcome === "live");
-      const recentOpen = Date.now() - openedAtRef.current < 60_000;
-
-      if (hasLive || recentOpen) {
-        fetchCalls();
-      }
+      if (document.visibilityState === "visible") fetchCalls();
     }, 3000);
-
     return () => clearInterval(interval);
-  }, [data, fetchCalls]);
+  }, [fetchCalls]);
 
   const filtered = useMemo(() => {
     if (!data) return [];
