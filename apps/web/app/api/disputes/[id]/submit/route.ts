@@ -3,6 +3,7 @@ import { z } from "zod";
 import { DEMO_APPROVED_IDS, DEMO_DENIED_IDS } from "@/lib/mock-scraper";
 import { getScraper } from "@/lib/services";
 import { parseParam } from "@/lib/parse-request";
+import { rateLimit, requireApiKey } from "@/lib/api-guard";
 import {
   getCandidate,
   getClassification,
@@ -18,9 +19,14 @@ const APPROVED_IDS = new Set<string>(DEMO_APPROVED_IDS);
 const CandidateIdSchema = z.string().regex(/^disp_[0-9]+$/);
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rl = rateLimit(request, "submit", { limit: 30, windowMs: 60_000 });
+  if (rl) return rl;
+  const auth = requireApiKey(request);
+  if (auth) return auth;
+
   const { id: rawId } = await params;
   const idCheck = parseParam(rawId, CandidateIdSchema, "candidate id");
   if (!idCheck.ok) return idCheck.response;

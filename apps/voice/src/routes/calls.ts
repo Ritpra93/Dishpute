@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Router as ExpressRouter, type Request, type Response } from "express";
 import { z } from "zod";
 import { initiateOutboundCall, fetchConversationDetail } from "../elevenlabs";
 import { canMakeOutboundCalls } from "../config";
@@ -12,11 +12,11 @@ import {
 import { readAudioStream, AudioNotFoundError } from "../audio-storage";
 import type { VoiceCallRecord } from "../types";
 import { requireSharedSecret } from "../middleware/auth";
-import { outboundLimiter } from "../middleware/rate-limit";
+import { callsReadLimiter, outboundLimiter } from "../middleware/rate-limit";
 import fs from "node:fs";
 import path from "node:path";
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 function rowToJson(row: VoiceCallRow) {
   let transcript: Array<{ role: string; message: string; timeInCallSecs: number }> | null = null;
@@ -169,14 +169,18 @@ router.get("/calls/history", requireSharedSecret, (_req, res) => {
 // still read a candidate's status, but the response is small (latest call
 // metadata for one ID) and contains no PII or financial detail beyond what the
 // dashboard already shows the operator.
-router.get("/calls/status/:candidateId", (req, res) => {
-  const row = getLatestVoiceCall(req.params.candidateId);
-  if (!row) {
-    res.status(404).json({ error: "no_call", candidateId: req.params.candidateId });
-    return;
+router.get(
+  "/calls/status/:candidateId",
+  callsReadLimiter,
+  (req: Request<{ candidateId: string }>, res: Response) => {
+    const row = getLatestVoiceCall(req.params.candidateId);
+    if (!row) {
+      res.status(404).json({ error: "no_call", candidateId: req.params.candidateId });
+      return;
+    }
+    res.json(rowToJson(row));
   }
-  res.json(rowToJson(row));
-});
+);
 
 // ---------------------------------------------------------------------------
 // Worker 5: Serve stored MP3 audio for a conversation.
@@ -185,76 +189,84 @@ router.get("/calls/status/:candidateId", (req, res) => {
 // ---------------------------------------------------------------------------
 const CONV_ID_RE = /^[A-Za-z0-9_-]{8,128}$/;
 
-router.get("/calls/:conversationId/audio", (req, res) => {
-  const { conversationId } = req.params;
-  if (!CONV_ID_RE.test(conversationId)) {
-    res.status(400).json({ error: "invalid_conversation_id" });
-    return;
-  }
+router.get(
+  "/calls/:conversationId/audio",
+  callsReadLimiter,
+  (req: Request<{ conversationId: string }>, res: Response) => {
+    const { conversationId } = req.params;
+    if (!CONV_ID_RE.test(conversationId)) {
+      res.status(400).json({ error: "invalid_conversation_id" });
+      return;
+    }
 
-  const storedPath = getAudioPath(conversationId);
-  if (!storedPath) {
-    res.status(404).json({ error: "audio_not_ready" });
-    return;
-  }
-
-  res.setHeader("Content-Type", "audio/mpeg");
-  res.setHeader("Cache-Control", "private, max-age=3600");
-  try {
-    readAudioStream(conversationId).pipe(res);
-  } catch (err) {
-    if (err instanceof AudioNotFoundError) {
+    const storedPath = getAudioPath(conversationId);
+    if (!storedPath) {
       res.status(404).json({ error: "audio_not_ready" });
-    } else {
-      throw err;
+      return;
+    }
+
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    try {
+      readAudioStream(conversationId).pipe(res);
+    } catch (err) {
+      if (err instanceof AudioNotFoundError) {
+        res.status(404).json({ error: "audio_not_ready" });
+      } else {
+        throw err;
+      }
     }
   }
-});
+);
 
 // ---------------------------------------------------------------------------
 // Worker 5: Live transcript for an in-progress call.
 // Returns ElevenLabs's current view. The web app wraps this in an SSE loop.
 // ---------------------------------------------------------------------------
-router.get("/calls/:conversationId/live-transcript", async (req, res) => {
-  const { conversationId } = req.params;
-  if (!CONV_ID_RE.test(conversationId)) {
-    res.status(400).json({ error: "invalid_conversation_id" });
-    return;
-  }
-
-  // Fixture mode: replay canned transcript for demo safety
-  if (process.env["CALLS_LIVE_FIXTURE"] === "on") {
-    try {
-      const fixturePath = path.join(
-        __dirname,
-        "../../__fixtures__/live-transcript-replay.json"
-      );
-      const snapshots = JSON.parse(fs.readFileSync(fixturePath, "utf-8"));
-      // Return the last snapshot (caller polls repeatedly; each poll gets
-      // progressively more turns via the fixture's growing arrays)
-      const idx = Math.min(
-        Math.floor((Date.now() / 2000) % snapshots.length),
-        snapshots.length - 1
-      );
-      res.json(snapshots[idx]);
+router.get(
+  "/calls/:conversationId/live-transcript",
+  callsReadLimiter,
+  async (req: Request<{ conversationId: string }>, res: Response) => {
+    const { conversationId } = req.params;
+    if (!CONV_ID_RE.test(conversationId)) {
+      res.status(400).json({ error: "invalid_conversation_id" });
       return;
+    }
+
+    // Fixture mode: replay canned transcript for demo safety
+    if (process.env["CALLS_LIVE_FIXTURE"] === "on") {
+      try {
+        const fixturePath = path.join(
+          __dirname,
+          "../../__fixtures__/live-transcript-replay.json"
+        );
+        const snapshots = JSON.parse(fs.readFileSync(fixturePath, "utf-8"));
+        // Return the last snapshot (caller polls repeatedly; each poll gets
+        // progressively more turns via the fixture's growing arrays)
+        const idx = Math.min(
+          Math.floor((Date.now() / 2000) % snapshots.length),
+          snapshots.length - 1
+        );
+        res.json(snapshots[idx]);
+        return;
+      } catch (err) {
+        console.warn("[live-transcript] fixture mode failed, falling through:", err);
+      }
+    }
+
+    try {
+      const detail = await fetchConversationDetail(conversationId);
+      res.json({
+        status: detail.status,
+        transcript: detail.transcript,
+        callDurationSecs: detail.metadata?.call_duration_secs ?? 0,
+        hasAudio: detail.has_audio ?? false,
+      });
     } catch (err) {
-      console.warn("[live-transcript] fixture mode failed, falling through:", err);
+      console.error("[live-transcript]", err);
+      res.status(502).json({ error: "upstream_failed" });
     }
   }
-
-  try {
-    const detail = await fetchConversationDetail(conversationId);
-    res.json({
-      status: detail.status,
-      transcript: detail.transcript,
-      callDurationSecs: detail.metadata?.call_duration_secs ?? 0,
-      hasAudio: detail.has_audio ?? false,
-    });
-  } catch (err) {
-    console.error("[live-transcript]", err);
-    res.status(502).json({ error: "upstream_failed" });
-  }
-});
+);
 
 export default router;

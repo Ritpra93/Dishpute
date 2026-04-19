@@ -1,10 +1,10 @@
-import { Router } from "express";
+import { Router, type Router as ExpressRouter } from "express";
 
 // Mocked Vanta trust-center payload. Shape is hand-chosen so the dashboard's
 // /trust page can render authentically without a real Vanta tenant.
 // See apps/voice/CLAUDE.md → Task 6 and docs/VERIFIED_APIS.md (Vanta section).
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 router.get("/api/vanta/trust-center", (_req, res) => {
   const now = Date.now();

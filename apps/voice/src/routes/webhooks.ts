@@ -1,4 +1,4 @@
-import { Router, raw } from "express";
+import { Router, raw, type Router as ExpressRouter } from "express";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { upsertVoiceCall, getCandidateWithClassification, markAudioStored } from "../db";
 import { config } from "../config";
@@ -9,7 +9,7 @@ import {
 } from "../elevenlabs";
 import { saveAudio } from "../audio-storage";
 
-const router = Router();
+const router: ExpressRouter = Router();
 const client = new ElevenLabsClient({ apiKey: config.elevenLabsApiKey });
 
 // ---------------------------------------------------------------------------
@@ -72,11 +72,17 @@ router.post(
   "/webhooks/elevenlabs/post-call",
   raw({ type: "application/json" }),
   async (req, res) => {
-    // Always return 200 — ElevenLabs does not retry 4xx responses.
+    // Always return 200 — ElevenLabs does not retry 4xx responses. We still
+    // log at ERROR severity (with a stable `event=webhook_failure` marker so
+    // log-based alerting can page on it) because silent 200s on bad sigs /
+    // malformed payloads would otherwise mask a real incident.
     try {
       const sig = req.header("ElevenLabs-Signature");
       if (!sig) {
-        console.warn("[webhook] Missing ElevenLabs-Signature header");
+        console.error(
+          "[webhook] event=webhook_failure kind=missing_signature ip=%s",
+          req.ip ?? "unknown",
+        );
         res.status(200).json({ status: "missing-signature" });
         return;
       }
@@ -151,7 +157,19 @@ router.post(
 
       res.status(200).json({ status: "ok" });
     } catch (err) {
-      console.error("[webhook] Error processing post-call webhook:", err);
+      // The two most likely causes: (a) ElevenLabsClient.webhooks.constructEvent
+      // threw because the HMAC didn't match — treat as a possible spoof/replay;
+      // (b) an unexpected error in our handler. Both need to page, but we still
+      // reply 200 so ElevenLabs doesn't retry.
+      const kind =
+        err instanceof Error && /signature/i.test(err.message)
+          ? "signature_mismatch"
+          : "handler_exception";
+      console.error(
+        "[webhook] event=webhook_failure kind=%s message=%s",
+        kind,
+        err instanceof Error ? err.message : String(err),
+      );
       res.status(200).json({ status: "logged-as-error" });
     }
   }

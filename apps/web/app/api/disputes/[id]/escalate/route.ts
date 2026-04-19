@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCandidate, getClassification, upsertOutcome } from "@/lib/repo";
 import { parseJson, parseParam } from "@/lib/parse-request";
+import { rateLimit, requireApiKey } from "@/lib/api-guard";
 import { DEMO_MERCHANT } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -80,6 +81,13 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Escalation triggers a billed Twilio + ElevenLabs call. Guard the web edge
+  // the same way apps/voice guards /calls/outbound.
+  const rl = rateLimit(request, "escalate", { limit: 5, windowMs: 60_000 });
+  if (rl) return rl;
+  const auth = requireApiKey(request);
+  if (auth) return auth;
+
   const { id: rawId } = await params;
   const idCheck = parseParam(rawId, CandidateIdSchema, "candidate id");
   if (!idCheck.ok) return idCheck.response;

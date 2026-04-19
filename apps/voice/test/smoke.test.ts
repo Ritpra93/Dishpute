@@ -1,14 +1,45 @@
 import type { Server } from "http";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-// Mock ElevenLabs outbound-call before importing the server so routes see the mock.
-vi.mock("../src/elevenlabs", () => ({
-  initiateOutboundCall: vi.fn(async () => ({
-    success: true,
-    conversation_id: "conv_mock_12345",
-    callSid: "CAmockmockmockmockmockmockmockmock",
-  })),
-}));
+// config.ts reads ElevenLabs env at module-load, and ESM hoists `import`
+// statements above top-level code. vi.hoisted guarantees these env writes
+// run BEFORE ../src/server (and its transitive import of config) evaluates,
+// so /calls/outbound sees canMakeOutboundCalls() === true.
+vi.hoisted(() => {
+  process.env.ELEVENLABS_API_KEY = "xi-test-key";
+  process.env.ELEVENLABS_AGENT_ID = "agent_test";
+  process.env.ELEVENLABS_PHONE_NUMBER_ID = "pn_test";
+  if (!process.env.NGROK_PUBLIC_URL) {
+    process.env.NGROK_PUBLIC_URL = "https://test.ngrok.example.com";
+  }
+  process.env.DB_PATH = "/tmp/counter-voice-smoke.db";
+});
+
+// Mock ElevenLabs module before importing the server so routes see the mock,
+// but keep real exports (AudioNotYetAvailableError class, types) so internal
+// consumers like fetchAndStoreAudio don't choke on undefined references.
+vi.mock("../src/elevenlabs", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../src/elevenlabs")>();
+  return {
+    ...original,
+    initiateOutboundCall: vi.fn(async () => ({
+      success: true,
+      conversation_id: "conv_mock_12345",
+      callSid: "CAmockmockmockmockmockmockmockmock",
+    })),
+    fetchConversationDetail: vi.fn(async () => ({
+      conversation_id: "conv_mock_12345",
+      status: "done" as const,
+      has_audio: false,
+      has_user_audio: false,
+      has_response_audio: false,
+      transcript: [],
+    })),
+    fetchConversationAudio: vi.fn(async (conversationId: string) => {
+      throw new original.AudioNotYetAvailableError(conversationId);
+    }),
+  };
+});
 
 // Mock the ElevenLabs SDK webhooks.constructEvent so the post-call route
 // doesn't need a valid HMAC signature. Real SDK returns a Promise — mock
@@ -20,10 +51,6 @@ vi.mock("@elevenlabs/elevenlabs-js", () => ({
     },
   })),
 }));
-
-// Point the voice server at an isolated temp DB so tests don't clobber the
-// hackathon's shared counter.db.
-process.env.DB_PATH = "/tmp/counter-voice-smoke.db";
 
 import { createApp } from "../src/server";
 import { getDb } from "../src/db";
@@ -40,23 +67,32 @@ beforeAll(async () => {
   if (!addr || typeof addr === "string") throw new Error("no address");
   baseUrl = `http://127.0.0.1:${addr.port}`;
 
-  // Seed a dispute candidate so the post-call webhook's INSERT INTO voice_calls
+  // Seed dispute candidates so the post-call webhook's INSERT INTO voice_calls
   // doesn't trip the FOREIGN KEY constraint. The real demo seeds this via
-  // apps/web's seed-demo script hitting the same counter.db.
-  getDb()
-    .prepare(
-      `INSERT OR IGNORE INTO dispute_candidates (
-        id, platform, order_id, charge_type, charge_amount_cents,
-        items_reported_json, customer_comment, order_timestamp, charge_timestamp,
-        dispute_deadline, portal_url, raw_text, scraped_at
-      ) VALUES (
-        'disp_smoke_test', 'doordash', 'ord_smoke', 'missing_item', 1000,
-        '[]', NULL, '2026-04-18T00:00:00Z', '2026-04-18T00:00:00Z',
-        '2026-05-02T00:00:00Z', '/mock-portal/disputes/disp_smoke_test', 'smoke-test candidate',
-        '2026-04-18T00:00:00Z'
-      )`,
-    )
-    .run();
+  // apps/web's seed-demo script hitting the same counter.db. disp_0008 is the
+  // candidateId the /calls/outbound contract test posts.
+  const insertCandidate = getDb().prepare(
+    `INSERT OR IGNORE INTO dispute_candidates (
+      id, platform, order_id, charge_type, charge_amount_cents,
+      items_reported_json, customer_comment, order_timestamp, charge_timestamp,
+      dispute_deadline, portal_url, raw_text, scraped_at
+    ) VALUES (
+      @id, 'doordash', @orderId, 'missing_item', 1000,
+      '[]', NULL, '2026-04-18T00:00:00Z', '2026-04-18T00:00:00Z',
+      '2026-05-02T00:00:00Z', @portalUrl, 'smoke-test candidate',
+      '2026-04-18T00:00:00Z'
+    )`,
+  );
+  insertCandidate.run({
+    id: "disp_smoke_test",
+    orderId: "ord_smoke",
+    portalUrl: "/mock-portal/disputes/disp_smoke_test",
+  });
+  insertCandidate.run({
+    id: "disp_0008",
+    orderId: "ord_0008",
+    portalUrl: "/mock-portal/disputes/disp_0008",
+  });
 
   // Seed a classification so tools/lookup_case can return real charge data
   // and the webhook's recoveredCents roll-up path has a recoverable amount.

@@ -1,8 +1,8 @@
-import { Router } from "express";
+import { Router, type Router as ExpressRouter } from "express";
 import { getCandidateWithClassification } from "../db";
 import { toolsLimiter } from "../middleware/rate-limit";
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 // All tool routes are reachable by ElevenLabs from the cloud during a
 // conversation, so we can't gate them on a shared secret. Rate-limit per IP

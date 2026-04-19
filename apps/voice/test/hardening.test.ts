@@ -6,15 +6,41 @@
 import type { Server } from "http";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
-vi.mock("../src/elevenlabs", () => ({
-  initiateOutboundCall: vi.fn(async () => ({
-    success: true,
-    conversation_id: "conv_hardening_1",
-    callSid: "CAhardeningtesthardeningtesthard",
-  })),
-}));
+// config.ts reads ElevenLabs env at module-load; vi.hoisted runs above
+// the hoisted import graph so these writes land before src/server imports
+// src/config and computes canMakeOutboundCalls().
+vi.hoisted(() => {
+  process.env.ELEVENLABS_API_KEY = "xi-test-key";
+  process.env.ELEVENLABS_AGENT_ID = "agent_test";
+  process.env.ELEVENLABS_PHONE_NUMBER_ID = "pn_test";
+  if (!process.env.NGROK_PUBLIC_URL) {
+    process.env.NGROK_PUBLIC_URL = "https://test.ngrok.example.com";
+  }
+  process.env.DB_PATH = "/tmp/counter-voice-hardening.db";
+});
 
-process.env.DB_PATH = "/tmp/counter-voice-hardening.db";
+vi.mock("../src/elevenlabs", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../src/elevenlabs")>();
+  return {
+    ...original,
+    initiateOutboundCall: vi.fn(async () => ({
+      success: true,
+      conversation_id: "conv_hardening_1",
+      callSid: "CAhardeningtesthardeningtesthard",
+    })),
+    fetchConversationDetail: vi.fn(async () => ({
+      conversation_id: "conv_hardening_1",
+      status: "done" as const,
+      has_audio: false,
+      has_user_audio: false,
+      has_response_audio: false,
+      transcript: [],
+    })),
+    fetchConversationAudio: vi.fn(async (conversationId: string) => {
+      throw new original.AudioNotYetAvailableError(conversationId);
+    }),
+  };
+});
 
 let server: Server;
 let baseUrl: string;
@@ -51,6 +77,25 @@ beforeAll(async () => {
   const addr = server.address();
   if (!addr || typeof addr === "string") throw new Error("no addr");
   baseUrl = `http://127.0.0.1:${addr.port}`;
+
+  // Seed the candidate referenced by VALID_BODY.candidateId — the /calls/outbound
+  // route writes a voice_calls row with a FOREIGN KEY on dispute_candidates.id,
+  // so without this the allowlist tests crash the upsert.
+  const { getDb } = await import("../src/db");
+  getDb()
+    .prepare(
+      `INSERT OR IGNORE INTO dispute_candidates (
+        id, platform, order_id, charge_type, charge_amount_cents,
+        items_reported_json, customer_comment, order_timestamp, charge_timestamp,
+        dispute_deadline, portal_url, raw_text, scraped_at
+      ) VALUES (
+        'disp_0008', 'doordash', 'ord_hardening', 'missing_item', 1000,
+        '[]', NULL, '2026-04-18T00:00:00Z', '2026-04-18T00:00:00Z',
+        '2026-05-02T00:00:00Z', '/mock-portal/disputes/disp_0008', 'hardening test candidate',
+        '2026-04-18T00:00:00Z'
+      )`,
+    )
+    .run();
 });
 
 afterAll(async () => {

@@ -12,6 +12,12 @@ import path from "node:path";
 const VOICE_URL =
   process.env["VOICE_SERVICE_URL"] ?? "http://localhost:4000";
 
+// ElevenLabs conversation IDs + Twilio call SIDs + the voice service's
+// internal candidate/stub IDs are all drawn from a safe alphabet. Validate
+// here so malformed / path-traversal / header-injection ids cannot be passed
+// through to the upstream.
+const CONVERSATION_ID_RE = /^[A-Za-z0-9_:.-]{1,128}$/;
+
 export const dynamic = "force-dynamic";
 
 export async function GET(
@@ -19,6 +25,13 @@ export async function GET(
   { params }: { params: Promise<{ conversationId: string }> }
 ) {
   const { conversationId } = await params;
+
+  if (!CONVERSATION_ID_RE.test(conversationId)) {
+    return NextResponse.json(
+      { error: "Invalid conversationId" },
+      { status: 400 }
+    );
+  }
 
   try {
     const upstream = await fetch(

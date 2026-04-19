@@ -103,9 +103,10 @@ VOICE_ESCALATE_URL=http://localhost:4000/calls/outbound
 NEXT_PUBLIC_VOICE_URL=http://localhost:4000
 DOORDASH_SUPPORT_NUMBER=+1XXXXXXXXXX    # E.164; must match voice allowlist
 VOICE_SHARED_SECRET=<same as apps/voice>
+COUNTER_WEB_API_KEY=<32-byte hex>       # required in prod for privileged API routes
 ```
 
-Generate a shared secret: `openssl rand -hex 32` — use the **same** value in **`apps/voice/.env.local`** and **`apps/web/.env.local`**.
+Generate both secrets with `openssl rand -hex 32`. `VOICE_SHARED_SECRET` must match the value in **`apps/voice/.env.local`**. `COUNTER_WEB_API_KEY` is sent as `x-counter-token` to the privileged web routes (see [Security](#security)).
 
 See root **`.env.example`** for the full variable list (`VOICE_SERVICE_URL`, `WEB_ORIGIN` on the voice app, etc.).
 
@@ -119,19 +120,49 @@ pnpm -F @counter/voice test   # voice unit tests (auth, hardening)
 
 ## Security
 
-The voice service may use a public URL (ngrok) during demos. Hardening:
+The voice service may use a public URL (ngrok) during demos, and the classifier ingests scraped merchant-portal HTML, so both layers are hardened.
 
-- **Shared secret** — `VOICE_SHARED_SECRET` in both `apps/voice/.env.local` and `apps/web/.env.local` (`x-counter-token` on server-to-server calls).  
-  - **Development:** if unset, voice logs a warning once and allows requests (local demo).  
+### Voice service (`apps/voice`)
+
+- **Shared secret** — `VOICE_SHARED_SECRET` in both `apps/voice/.env.local` and `apps/web/.env.local` (`x-counter-token` on server-to-server calls).
+  - **Development:** if unset, voice logs a warning once and allows requests (local demo).
   - **Production** (`NODE_ENV=production` on the voice app): if unset, protected routes return **503** `misconfigured` — outbound calls are blocked until the secret is set.
 - **CORS** — `WEB_ORIGIN` in `apps/voice/.env.local` (comma-separated). Defaults to `http://localhost:3000`.
 - **Phone allowlist** — `ALLOWED_CALL_NUMBERS` or fallback `DOORDASH_SUPPORT_NUMBER` (E.164).
-- **Rate limiting** — `/calls/outbound`: 10 / 5 min per IP; tools: 60 / min.
-- **Webhooks** — `ElevenLabs-Signature` verified with `ELEVENLABS_WEBHOOK_SECRET` before persisting transcripts.
+- **Rate limiting** — `/calls/outbound`: 10 / 5 min per IP; unauthenticated `/calls/:id/*` read endpoints: 120 / min; tools: 60 / min.
+- **Webhooks** — `ElevenLabs-Signature` verified with `ELEVENLABS_WEBHOOK_SECRET` before persisting transcripts. Signature mismatches and missing signatures emit `event=webhook_failure` log markers for alerting.
+- **Input validation** — `conversationId` values are regex-validated (`/^[A-Za-z0-9_-]{8,128}$/`) before being used in file paths or upstream calls.
+- **`/health`** — omits `ngrokPublicUrl` when `NODE_ENV=production`.
 
-The **dashboard and Next.js API routes are not authenticated** — suitable for a controlled demo only. Do not expose a production deployment to the open internet without adding auth or network controls.
+### Web service (`apps/web`)
 
-Tests: `apps/voice/test/auth.test.ts`, `apps/voice/test/hardening.test.ts`.
+- **Privileged API key** — `COUNTER_WEB_API_KEY` on `apps/web/.env.local`. Sent as `x-counter-token` to protect `/api/scan`, `/api/disputes/*/submit`, `/api/disputes/*/escalate`, `/api/disputes/submit-all`, `/api/stripe/onboarding`, and `/api/transfers/demo-arm`. Compared with `timingSafeEqual`.
+  - **Development:** if unset, the route logs a warning and proceeds (local demo).
+  - **Production** (`NODE_ENV=production`): if unset, privileged routes return **503** `misconfigured`.
+- **Rate limiting** — per-route IP buckets on the same privileged routes (e.g. scan 10/min, submit 30/min, submit-all 3/min, escalate 5/min, stripe onboarding 5/min). Skipped in `NODE_ENV=test` so the integration suite doesn't trip its own limits.
+- **Proxy input validation** — `/api/calls/[conversationId]/audio` and `/api/calls/[conversationId]/live` reject malformed IDs with a 400 before proxying upstream.
+
+### Classifier + scraper (`packages/classifier`, `packages/scraper`)
+
+The scraped-HTML → Claude path is a live prompt-injection surface. Hardening:
+
+- **Explicit delimiters** — `buildUserMessage` wraps `customerComment` and `rawText` (scraped HTML) in `<customer_comment>…</customer_comment>` and `<scraped_content>…</scraped_content>` tags; any occurrence of those tokens inside untrusted input is stripped via `sanitizeUntrusted`.
+- **System-prompt directive** — every Claude system prompt (classifier, prefilter, triage, evidence, negotiator) prepends a `UNTRUSTED_INPUT_DIRECTIVE` telling the model to treat tagged content strictly as data, ignore embedded instructions, and treat injection attempts as a fraud signal that lowers `meritScore`.
+- **TinyFish goal sanitization** — LLM-drafted dispute text is stripped of control characters, fenced blocks, and delimiter tokens before being embedded in the browser agent's goal. The goal uses `<<<RESPONSE_START>>>` / `<<<RESPONSE_END>>>` delimiters.
+- **Scraper ID validation** — `orderId` / `candidateId` values are validated against `/^[A-Za-z0-9_.:-]+$/` before interpolation into TinyFish goals.
+- **SSRF allowlist** — `submitDispute` rejects `portalUrl` hosts outside the configured DoorDash / mock-portal allowlist.
+
+### Secrets
+
+See the **SECRET ROTATION CHECKLIST** in `.env.example` for the full list of secrets (Anthropic, TinyFish, ElevenLabs, Twilio, Stripe, ngrok, `VOICE_SHARED_SECRET`, `COUNTER_WEB_API_KEY`) and the commands to rotate each one before a public deploy.
+
+### Tests
+
+- `apps/voice/test/auth.test.ts` — shared-secret middleware
+- `apps/voice/test/hardening.test.ts` — rate limits, CORS, phone allowlist, webhook signatures
+- `apps/voice/test/smoke.test.ts` — outbound + webhook happy path
+- `apps/web/test/rehearsal.test.ts` — full Beat 2→4 demo walk with real voice app in-process
+- `apps/web/test/contracts.test.ts` — escalate payload / voice contract
 
 ## Team
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getScraper, getClassifier } from "@/lib/services";
 import { parseJson } from "@/lib/parse-request";
+import { rateLimit, requireApiKey } from "@/lib/api-guard";
 import {
   resetAllTables,
   upsertCandidate,
@@ -17,6 +18,11 @@ const ScanRequestSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const rl = rateLimit(request, "scan", { limit: 10, windowMs: 60_000 });
+  if (rl) return rl;
+  const auth = requireApiKey(request);
+  if (auth) return auth;
+
   const parsed = await parseJson(request, ScanRequestSchema);
   if (!parsed.ok) return parsed.response;
 

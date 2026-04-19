@@ -249,7 +249,7 @@ pnpm test:all
 pnpm test:demo
 
 # Live Claude integration (requires ANTHROPIC_API_KEY env)
-cd packages/classifier && ANTHROPIC_API_KEY=sk-ant-... tsx test/live.test.ts
+cd packages/classifier && ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" tsx test/live.test.ts
 ```
 
 Fresh-clone sanity:

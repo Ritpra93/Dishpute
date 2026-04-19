@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
 
 @theme inline {
@@ -139,10 +139,12 @@
   /* Warm border accent */
   --border-warm: oklch(0.7 0.13 55 / 0.25);
 
-  /* Font families */
-  --font-display: "Newsreader", "Georgia", serif;
-  --font-body: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", monospace;
+  /* Font families — Inter everywhere */
+  --font-inter: "Inter", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--font-inter);
+  --font-body: var(--font-inter);
+  --font-mono: var(--font-inter);
 }
 
 @layer base {
@@ -157,16 +159,23 @@
       var(--background);
     background-attachment: fixed;
     color: var(--color-foreground);
-    font-family: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-    font-feature-settings: "ss01", "cv05";
+    font-family: var(--font-inter);
+    font-feature-settings: "cv11", "ss01", "ss03";
     letter-spacing: -0.005em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   h1, h2, h3, h4, .font-display {
-    font-family: "Newsreader", "Georgia", serif;
+    font-family: var(--font-inter);
     letter-spacing: -0.02em;
+  }
+
+  /* Tailwind's `font-mono` utility is unified to Inter so the look is
+     consistent across the entire app; keep tabular-nums for alignment. */
+  code, pre, kbd, samp, .font-mono, [class*="tabular-nums"] {
+    font-family: var(--font-inter);
+    font-variant-numeric: tabular-nums;
   }
 
   .tabular-nums {

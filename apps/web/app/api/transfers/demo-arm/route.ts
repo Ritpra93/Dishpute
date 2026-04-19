@@ -12,6 +12,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { parseJson } from "@/lib/parse-request";
+import { rateLimit, requireApiKey } from "@/lib/api-guard";
 import { insertTransfer } from "@/lib/transfers/repo";
 import { publishTransfer } from "@/lib/transfers/broker";
 
@@ -33,6 +34,11 @@ export async function POST(request: Request) {
       { status: 403 }
     );
   }
+
+  const rl = rateLimit(request, "demo-arm", { limit: 30, windowMs: 60_000 });
+  if (rl) return rl;
+  const auth = requireApiKey(request);
+  if (auth) return auth;
 
   const parsed = await parseJson(request, Schema);
   if (!parsed.ok) return parsed.response;

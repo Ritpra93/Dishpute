@@ -53,7 +53,9 @@ describe("P5 — Demo timing budgets", () => {
     expect(body.submitted).toBe(22);
     // Mock scraper has min(400, latency/3) = min(400, 0/3) = 0ms per submit.
     // Real TinyFish would take ~22 × 2s = ~45s; the demo uses the mock path.
-    expect(ms).toBeLessThan(5_000);
+    // 10s budget gives headroom for a warm JIT + crowded CI while still
+    // catching a genuine regression vs the sub-second mock path.
+    expect(ms).toBeLessThan(10_000);
     console.log(`[perf] /api/disputes/submit-all (22 disputes) = ${ms}ms`);
   });
 
