@@ -5,6 +5,7 @@ import {
   listVoiceCalls,
   getLatestVoiceCall,
   getAudioPath,
+  upsertVoiceCall,
   type VoiceCallRow,
 } from "../db";
 import { readAudioStream, AudioNotFoundError } from "../audio-storage";
@@ -130,6 +131,15 @@ router.post(
       twilioCallSid: result.callSid,
       startedAt: new Date().toISOString(),
     };
+
+    // Persist immediately so the Calls tab shows a "Live" row right away.
+    // The post-call webhook will upsert over this with transcript + outcome.
+    upsertVoiceCall({
+      candidateId,
+      elevenLabsConversationId: result.conversation_id,
+      twilioCallSid: result.callSid,
+      startedAt: record.startedAt,
+    });
 
     console.log(
       `[calls/outbound] Call started — conversationId=${result.conversation_id} callSid=${result.callSid}`
