@@ -59,6 +59,7 @@ function useVoiceCallStatus(
       return;
     }
     let cancelled = false;
+    let timerId: ReturnType<typeof setInterval> | null = null;
 
     const poll = async () => {
       try {
@@ -69,7 +70,13 @@ function useVoiceCallStatus(
         if (res.status === 404) {
           setStatus(null);
         } else if (res.ok) {
-          setStatus((await res.json()) as VoiceCallStatus);
+          const data = (await res.json()) as VoiceCallStatus;
+          setStatus(data);
+          // Call finished — stop polling
+          if (data.callOutcome !== null && timerId !== null) {
+            clearInterval(timerId);
+            timerId = null;
+          }
         }
       } catch {
         // Voice server not running — UI just stays in the "no call yet" state.
@@ -77,10 +84,10 @@ function useVoiceCallStatus(
     };
 
     poll();
-    const id = setInterval(poll, 2000);
+    timerId = setInterval(poll, 2000);
     return () => {
       cancelled = true;
-      clearInterval(id);
+      if (timerId !== null) clearInterval(timerId);
     };
   }, [candidateId, enabled]);
 
@@ -97,7 +104,7 @@ export function DisputeDetailSheet({
   const escalateToVoice = dispute?.outcome?.escalateToVoice ?? false;
   const voiceStatus = useVoiceCallStatus(
     dispute?.id ?? null,
-    open && escalateToVoice
+    open && (escalateToVoice || dispute?.outcome?.outcome === "denied")
   );
   const [callStarted, setCallStarted] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -106,8 +113,14 @@ export function DisputeDetailSheet({
   const c = dispute.classification;
   const isDenied = dispute.outcome?.outcome === "denied";
 
+  // A call exists if we started one this session OR the voice server has a record
+  const hasAnyCall = callStarted || voiceStatus !== null;
+  const callFinished = voiceStatus != null && voiceStatus.callOutcome !== null;
+  const isLive = hasAnyCall && !callFinished;
+
   function startCall() {
-    if (!onEscalate || !dispute) return;
+    // Prevent double-calling: guard if call already exists
+    if (!onEscalate || !dispute || hasAnyCall) return;
     setCallStarted(true);
     onEscalate(dispute.id);
   }
@@ -116,7 +129,6 @@ export function DisputeDetailSheet({
     voiceStatus?.callOutcome != null
       ? CALL_OUTCOME_LABEL[voiceStatus.callOutcome] ?? voiceStatus.callOutcome
       : null;
-  const callFinished = voiceStatus != null && voiceStatus.callOutcome !== null;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -240,26 +252,32 @@ export function DisputeDetailSheet({
                     Automated denial — escalating to a human rep often recovers ~62%.
                   </p>
                 </div>
-                {!callStarted ? (
-                  <Button onClick={startCall} disabled={isEscalating} size="sm">
-                    {isEscalating ? "Dialing…" : "Escalate to voice"}
-                  </Button>
-                ) : (
+                {callFinished ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-card px-2.5 py-1 text-xs text-muted-foreground">
+                    Call ended
+                  </span>
+                ) : isLive ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-card px-2.5 py-1 text-xs">
                     <span className="h-2 w-2 animate-pulse-dot rounded-full bg-live-pulse" />
                     Live call in progress
                   </span>
+                ) : (
+                  <Button onClick={startCall} disabled={isEscalating} size="sm">
+                    {isEscalating ? "Dialing…" : "Escalate to voice"}
+                  </Button>
                 )}
               </div>
 
-              {(callStarted || voiceStatus) && (
+              {hasAnyCall && (
                 <div className="mt-4 space-y-3 rounded-xl border bg-card p-4 text-xs">
                   {voiceStatus && (
                     <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
                       <span className="text-muted-foreground">
                         {callFinished
                           ? `Ended · ${relativeTime(voiceStatus.endedAt ?? voiceStatus.startedAt)}`
-                          : "Live call in progress"}
+                          : isLive
+                          ? "Live call in progress"
+                          : "Connecting…"}
                       </span>
                       {outcomeLabel && (
                         <Badge

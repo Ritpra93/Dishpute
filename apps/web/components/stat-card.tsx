@@ -35,8 +35,8 @@ export function StatCard({
     <div
       className={cn(
         "glass relative overflow-hidden rounded-2xl p-5 transition-shadow",
-        tone === "money" && "ring-1 ring-money/30",
-        tone === "danger" && "ring-1 ring-denied-border/40",
+        tone === "money" && "ring-1 ring-money/15",
+        tone === "danger" && "ring-1 ring-denied-border/15",
         tone === "muted" && "opacity-95",
       )}
     >

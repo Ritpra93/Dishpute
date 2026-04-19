@@ -8,6 +8,18 @@ if (!NGROK_PUBLIC_URL) {
   );
 }
 
+// Validate required keys for outbound calls and log actionable errors at startup.
+const REQUIRED_FOR_CALLS: Array<[string, string]> = [
+  ["ELEVENLABS_API_KEY",        "ElevenLabs API key (from platform.elevenlabs.io → API keys)"],
+  ["ELEVENLABS_AGENT_ID",       "ElevenLabs Conversational AI agent ID"],
+  ["ELEVENLABS_PHONE_NUMBER_ID","ElevenLabs phone number ID linked to a Twilio number"],
+];
+for (const [key, description] of REQUIRED_FOR_CALLS) {
+  if (!process.env[key]) {
+    console.warn(`[config] ${key} is not set — ${description}. Outbound calls will fail.`);
+  }
+}
+
 export const config = {
   port: Number(process.env["PORT"] ?? 4000),
   ngrokPublicUrl: NGROK_PUBLIC_URL ?? "",
@@ -16,6 +28,11 @@ export const config = {
   elevenLabsPhoneNumberId: process.env["ELEVENLABS_PHONE_NUMBER_ID"] ?? "",
   elevenLabsWebhookSecret: process.env["ELEVENLABS_WEBHOOK_SECRET"] ?? "",
 } as const;
+
+/** True only when all three keys required for an outbound call are present. */
+export function canMakeOutboundCalls(): boolean {
+  return !!(config.elevenLabsApiKey && config.elevenLabsAgentId && config.elevenLabsPhoneNumberId);
+}
 
 export const TOOL_URLS = {
   lookupCase: `${config.ngrokPublicUrl}/tools/lookup_case`,

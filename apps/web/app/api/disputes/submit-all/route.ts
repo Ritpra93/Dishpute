@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { createMockScraper, DEMO_APPROVED_IDS, DEMO_DENIED_IDS } from "@/lib/mock-scraper";
+import { DEMO_APPROVED_IDS, DEMO_DENIED_IDS } from "@/lib/mock-scraper";
+import { getScraper } from "@/lib/services";
 import {
   getCandidate,
   listSubmittableClassifications,
@@ -14,7 +15,7 @@ const DENIED_IDS = new Set<string>(DEMO_DENIED_IDS);
 const APPROVED_IDS = new Set<string>(DEMO_APPROVED_IDS);
 
 export async function POST() {
-  const scraper = createMockScraper({ latencyMs: 0 });
+  const scraper = getScraper();
 
   const submittable = listSubmittableClassifications(MERIT_THRESHOLDS.AUTO_SUBMIT);
 

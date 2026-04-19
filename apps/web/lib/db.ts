@@ -22,6 +22,11 @@ export function getDb(): Database.Database {
     const schema = fs.readFileSync(SCHEMA_PATH, "utf-8");
     db.exec(schema);
     ensureVoiceCallsAudioColumns(db);
+
+    const row = db.prepare("SELECT COUNT(*) as n FROM dispute_candidates").get() as { n: number };
+    if (row.n === 0) {
+      console.warn("[db] dispute_candidates is empty — run `pnpm seed` to populate demo data.");
+    }
   }
   return db;
 }

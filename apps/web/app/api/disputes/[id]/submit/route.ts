@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createMockScraper, DEMO_APPROVED_IDS, DEMO_DENIED_IDS } from "@/lib/mock-scraper";
+import { DEMO_APPROVED_IDS, DEMO_DENIED_IDS } from "@/lib/mock-scraper";
+import { getScraper } from "@/lib/services";
 import { parseParam } from "@/lib/parse-request";
 import {
   getCandidate,
@@ -35,7 +36,7 @@ export async function POST(
     );
   }
 
-  const scraper = createMockScraper({ latencyMs: 0 });
+  const scraper = getScraper();
   const submission = await scraper.submitDispute({
     candidate,
     draftedText: classification.draftedDisputeText,

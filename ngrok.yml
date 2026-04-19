@@ -1,0 +1,15 @@
+# Two tunnels in one agent — avoids ERR_NGROK_334 (same domain on two processes).
+# Run from repo root:  ngrok start --all --config ngrok.yml
+# Or:                   pnpm ngrok:both
+#
+# Authtoken is read from your global ngrok config (~/.config/ngrok/ngrok.yml) if not set here.
+# One-time: ngrok config add-authtoken <token>
+
+version: "2"
+tunnels:
+  web:
+    proto: http
+    addr: 3000
+  voice:
+    proto: http
+    addr: 4000

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { initiateOutboundCall, fetchConversationDetail } from "../elevenlabs";
+import { canMakeOutboundCalls } from "../config";
 import {
   listVoiceCalls,
   getLatestVoiceCall,
@@ -82,6 +83,7 @@ router.post(
   requireSharedSecret,
   async (req, res) => {
     const parsed = OutboundCallSchema.safeParse(req.body);
+
     if (!parsed.success) {
       res.status(400).json({
         error: "invalid_request",
@@ -95,6 +97,14 @@ router.post(
 
     const { toNumber, candidateId, caseNumber, merchantName, denialReason } =
       parsed.data;
+
+    if (!canMakeOutboundCalls()) {
+      res.status(503).json({
+        error: "voice_not_configured",
+        message: "ELEVENLABS_API_KEY, ELEVENLABS_AGENT_ID, and ELEVENLABS_PHONE_NUMBER_ID must all be set in apps/voice/.env.local",
+      });
+      return;
+    }
 
     const allowlist = resolveAllowlist();
     if (allowlist && !allowlist.has(toNumber)) {

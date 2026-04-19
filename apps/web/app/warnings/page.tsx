@@ -12,16 +12,13 @@ export default function WarningsPage() {
       <TopNav />
       <main className="mx-auto max-w-3xl px-6 pb-16 pt-8">
         <div className="mb-2 text-xs font-medium uppercase tracking-widest text-money">
-          Early warnings · pre-dispute
+          Early warnings
         </div>
         <h1 className="text-3xl font-semibold tracking-tight">
-          Catch the charge before it lands.
+          Stop charges before they happen.
         </h1>
-        <p className="mt-2 max-w-2xl text-sm text-foreground/70">
-          Counter watches the auto-refund window, delivery telemetry, and
-          customer-comment streams across DoorDash, Uber Eats, and Grubhub. When
-          a charge is statistically likely, we stage the evidence early so the
-          dispute is one click away the moment it deducts.
+        <p className="mt-2 max-w-xl text-sm text-foreground/60">
+          dishpute monitors your deliveries in real time. When a charge looks likely, evidence is already staged.
         </p>
 
         <div className="mt-8">

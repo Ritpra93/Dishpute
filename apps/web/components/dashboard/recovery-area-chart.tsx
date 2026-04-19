@@ -16,7 +16,6 @@ import { formatMoney } from "@/lib/format";
 interface Point {
   day: string;
   recovered: number;
-  predicted: number;
 }
 
 function buildSeries(): Point[] {
@@ -27,8 +26,7 @@ function buildSeries(): Point[] {
     const r = (s & 0xffff) / 0xffff;
     const base = 320 + Math.sin(i / 1.7) * 140 + r * 90;
     const recovered = Math.max(80, Math.round(base));
-    const predicted = Math.round(base * 1.12 + 30);
-    return { day: d, recovered, predicted };
+    return { day: d, recovered };
   });
 }
 
@@ -44,15 +42,11 @@ export function RecoveryAreaChart() {
   const point = data[active];
 
   return (
-    <div className="relative h-[260px] w-full">
+    <div className="relative h-[120px] w-full">
       <div className="pointer-events-none absolute right-3 top-2 z-10 flex items-center gap-3 text-[11px] text-muted-foreground">
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-money shadow-[0_0_8px_oklch(0.9_0.23_130/0.7)]" />
+          <span className="h-2 w-2 rounded-full bg-money" />
           Recovered
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-[2px] w-3 rounded border-t-[1.5px] border-dashed border-foreground/40" />
-          Forecast
         </span>
       </div>
       <ResponsiveContainer width="100%" height="100%">
@@ -97,7 +91,6 @@ export function RecoveryAreaChart() {
             content={({ active: a, payload, label }) => {
               if (!a || !payload?.length) return null;
               const rec = payload.find((p) => p.dataKey === "recovered")?.value as number | undefined;
-              const pred = payload.find((p) => p.dataKey === "predicted")?.value as number | undefined;
               return (
                 <div className="glass rounded-xl px-3 py-2 text-xs shadow-xl">
                   <div className="text-muted-foreground">{label}</div>
@@ -106,23 +99,11 @@ export function RecoveryAreaChart() {
                     Recovered{" "}
                     <span className="ml-auto font-medium text-money">{formatMoney(rec ?? 0)}</span>
                   </div>
-                  <div className="mt-0.5 flex items-center gap-2 tabular-nums text-muted-foreground">
-                    <span className="h-1.5 w-1.5 rounded-full bg-foreground/40" />
-                    Forecast <span className="ml-auto">{formatMoney(pred ?? 0)}</span>
-                  </div>
                 </div>
               );
             }}
           />
-          <Area
-            type="monotone"
-            dataKey="predicted"
-            stroke="oklch(0.7 0.012 250 / 0.55)"
-            strokeDasharray="4 4"
-            strokeWidth={1.5}
-            fill="transparent"
-            dot={false}
-          />
+
           <Area
             type="monotone"
             dataKey="recovered"
