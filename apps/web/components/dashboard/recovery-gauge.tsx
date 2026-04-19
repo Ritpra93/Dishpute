@@ -10,6 +10,11 @@ interface RecoveryGaugeProps {
   className?: string;
 }
 
+/** Stable coords for SSR + browser (avoids float drift in cos/sin between runtimes). */
+function roundSvg(n: number): number {
+  return Math.round(n * 1e4) / 1e4;
+}
+
 export function RecoveryGauge({ value, label, sublabel, className }: RecoveryGaugeProps) {
   const TICKS = 28;
   const activeCount = Math.round(value * TICKS);
@@ -34,10 +39,10 @@ export function RecoveryGauge({ value, label, sublabel, className }: RecoveryGau
           const cy = 100;
           const rOuter = 92;
           const rInner = 64;
-          const x1 = cx + Math.cos(angle) * rInner;
-          const y1 = cy - Math.sin(angle) * rInner;
-          const x2 = cx + Math.cos(angle) * rOuter;
-          const y2 = cy - Math.sin(angle) * rOuter;
+          const x1 = roundSvg(cx + Math.cos(angle) * rInner);
+          const y1 = roundSvg(cy - Math.sin(angle) * rInner);
+          const x2 = roundSvg(cx + Math.cos(angle) * rOuter);
+          const y2 = roundSvg(cy - Math.sin(angle) * rOuter);
           const active = i < activeCount;
           return (
             <g key={i}>
