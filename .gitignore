@@ -36,6 +36,13 @@ pnpm-debug.log*
 # Internal "how it works" walkthrough — local-only, may reference real env layout
 HOW_IT_WORKS.md
 
+# Project markdown — keep planning/working docs local-only.
+# Only CLAUDE.md (Claude Code context) and README.md (public-facing) are
+# committed at any depth in the tree.
+*.md
+!CLAUDE.md
+!README.md
+
 # OS
 .DS_Store
 Thumbs.db

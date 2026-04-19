@@ -8,7 +8,7 @@ Built at O1 Summit 2026. 24-hour hackathon, 4-person team, built entirely with C
 
 ## Demo
 
-See `docs/DEMO_SCRIPT.md` for the full 10-minute demo. One-line summary:
+One-line summary:
 
 > "30 charges found, 22 disputable, $892 recovered — and when one was denied, our agent called DoorDash support live on stage and resolved it."
 
@@ -27,7 +27,7 @@ Next.js dashboard (apps/web)
    apps/voice (Express) — ElevenLabs Agents + Twilio native integration
 ```
 
-Full detail: `docs/ARCHITECTURE.md`.
+Per-workspace detail lives in each package's `CLAUDE.md`.
 
 ## Tech stack
 
@@ -40,16 +40,11 @@ Full detail: `docs/ARCHITECTURE.md`.
 - Stripe Connect (test mode)
 - ngrok (tunneling)
 
-Every version and API is pinned in `docs/VERIFIED_APIS.md`.
-
 ## Repo structure
 
 ```
 counter/
 ├── CLAUDE.md                   # Master context — start here
-├── START_HERE.md               # First 30 min of the hackathon
-├── PRE_HACKATHON.md            # Account setup (before Saturday)
-├── docs/                       # Planning + reference docs
 ├── packages/
 │   ├── types/                  # Shared TS contracts + SQL schema
 │   ├── scraper/                # TinyFish wrapper (Worker 1)
@@ -58,6 +53,8 @@ counter/
     ├── web/                    # Next.js dashboard + mock portal (Worker 3)
     └── voice/                  # ElevenLabs voice escalation (Worker 4)
 ```
+
+Each workspace has its own `CLAUDE.md` with implementation detail.
 
 ## Running locally
 
@@ -166,7 +163,7 @@ See the **SECRET ROTATION CHECKLIST** in `.env.example` for the full list of sec
 
 ## Team
 
-Built at O1 Summit 2026 by a 4-person team working in parallel using Claude Code. Shared contracts live in `packages/types`. See `docs/CLAUDE_CODE_PRACTICES.md`.
+Built at O1 Summit 2026 by a 4-person team working in parallel using Claude Code. Shared contracts live in `packages/types`.
 
 ## Not included
 
