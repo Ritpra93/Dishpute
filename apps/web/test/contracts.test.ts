@@ -121,8 +121,11 @@ describe("P2.3 dashboard → voice (escalate payload matches /calls/outbound con
         { params: Promise.resolve({ id: "disp_0017" }) },
       );
 
-      expect(fetchSpy).toHaveBeenCalledTimes(1);
-      const [, init] = fetchSpy.mock.calls[0]!;
+      // Filter to the voice-service call only (escalate now also pings Vanta
+      // for a pre-flight gate, which fails-open here since we haven't mocked it).
+      const voiceCalls = fetchSpy.mock.calls.filter(([u]) => String(u).includes("/outbound"));
+      expect(voiceCalls).toHaveLength(1);
+      const [, init] = voiceCalls[0]!;
       const sent = JSON.parse((init as RequestInit).body as string) as Record<string, unknown>;
 
       // Exactly the 5-field contract from apps/voice/src/routes/calls.ts

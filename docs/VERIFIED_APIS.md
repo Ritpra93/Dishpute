@@ -397,43 +397,59 @@ Haiku has a separate pool, so routing to Haiku bypasses Sonnet's limit.
 
 ---
 
-## Mocked Vanta MCP
+## Vanta MCP integration (Tier 2: real client, fixture-backed)
 
-We are NOT using real Vanta. No self-serve trial exists. We mock the MCP server so the trust-center narrative reads authentically in the demo without a real tenant.
+We speak the **official Vanta MCP protocol** via `@vantasdk/vanta-mcp-server` over stdio. We do not have a Vanta tenant for the demo, so the client gracefully falls back to local fixtures shaped like real Vanta API responses. The same code path runs the moment someone provisions a tenant — flip one env var and we're live.
 
-### Implementation (owned by Worker 4)
+### Official tool surface
 
-Build a tiny Express endpoint in `apps/voice` at `/api/vanta/*` that returns fixture data matching the real Vanta MCP tool surface:
+Source: [VantaInc/vanta-mcp-server README](https://github.com/VantaInc/vanta-mcp-server). Top-level tools are NOT prefixed with `list_` (that prefix is from an unofficial fork — we use the real names):
 
-```typescript
-// apps/voice/src/routes/vanta-mock.ts
-router.get("/api/vanta/trust-center", (req, res) => {
-  res.json({
-    organization: "Counter",
-    controls: {
-      total: 52,
-      monitored: 47,
-      failing: 2,
-      not_applicable: 3
-    },
-    frameworks: ["SOC 2 Type II (in progress)", "HIPAA (monitored)"],
-    last_scan: new Date().toISOString(),
-    integrations: [
-      { name: "GitHub", status: "connected", last_sync: "..." },
-      { name: "AWS", status: "connected", last_sync: "..." },
-      { name: "Okta", status: "connected", last_sync: "..." }
-    ]
-  });
-});
+- `frameworks` — list compliance frameworks the tenant is tracking (SOC 2, ISO 27001, ISO 42001, HIPAA, GDPR, etc.)
+- `controls` — list controls with status, framework mappings, owner
+- `tests` — list automated tests with `statusFilter` (PASSING/FAILING/NEEDS_ATTENTION/NOT_APPLICABLE), `frameworkFilter`, `integrationFilter`
+- `integrations` — list connected integrations (GitHub, AWS, Okta, etc.) with `connectionStatus` and `resourceKinds`
+- `documents` — list policy and audit documents
+
+Dependent tools we don't currently call but have shaped fixtures for: `list_control_tests`, `list_control_documents`, `list_framework_controls`, `list_test_entities`, `document_resources`, `integration_resources`. There are also `people`, `risks`, `vulnerabilities`, and a `trust-centers` operation in the official server.
+
+### Implementation
+
+`apps/voice/src/lib/vanta-mcp.ts` is a `VantaMcpClient` singleton:
+
+- Lazy-connects on first `callTool` invocation using `StdioClientTransport` from `@modelcontextprotocol/sdk`.
+- Spawns `npx -y @vantasdk/vanta-mcp-server` with `VANTA_ENV_FILE` pointing at the OAuth credentials JSON.
+- Connection has a 500ms timeout — we never block a request on a cold MCP connect; falls through to fixture if connect is slow.
+- Every response is `{ source: "live" | "fixture", fallbackReason?, data }` so callers and the demo UI know which mode is active.
+- Logs `[vanta-mcp] live` vs `[vanta-mcp] fixture (reason: ...)` so the demo console shows the truth.
+
+`apps/voice/src/routes/vanta.ts` exposes REST endpoints that mirror the MCP tool surface 1:1 (`GET /api/vanta/frameworks`, `/controls`, `/tests`, `/integrations`, `/documents`) plus a composite `/api/vanta/trust-center` rollup for the dashboard.
+
+`apps/voice/__fixtures__/vanta/{frameworks,controls,tests,integrations,documents}.json` contain fixture data shaped exactly like the [Vanta REST API responses](https://developer.vanta.com/reference/listcontrols), envelope and all (`{ results: { data: [...], pageInfo: {...} } }`).
+
+### Pre-flight gate (the load-bearing piece)
+
+`apps/web/lib/vanta-gate.ts` calls `GET /api/vanta/tests?frameworkFilter=soc2` before every voice escalation. If any test in a critical category (`data_security`, `access_control`, `ai_governance`) is `FAILING` or `NEEDS_ATTENTION`, the escalate route returns `409 Conflict` with `{ code: "vanta_pre_flight_blocked", gate: { failingCritical: [...] } }`. On success, the escalate response includes `vantaGate: { source, controlsChecked, passed: true }` so the UI can render a "Vanta pre-flight: passed" badge.
+
+Fail-open policy: if the Vanta service itself is unreachable (network error, voice service down), the gate logs loudly and proceeds — a Vanta outage must not freeze the dashboard mid-demo. The audit log records `source: "unreachable"` so the operator can later confirm what happened.
+
+### Going live
+
+```bash
+# Provision OAuth credentials at https://developer.vanta.com/docs/api-access-setup
+# Save them to a JSON file:
+echo '{"client_id":"...","client_secret":"..."}' > /secure/vanta.env
+
+# Point the voice service at it:
+export VANTA_ENV_FILE=/secure/vanta.env
+pnpm -F @counter/voice dev
+
+# That's it. No code changes.
 ```
 
-The dashboard's `/trust` page fetches this and renders a convincing "monitored by Vanta" trust center.
+### Why this is defensible to a Vanta judge
 
-### Why this is fine for the demo
-
-Judges see a realistic trust center. The backend being mocked is invisible. The pitch narrative ("Vanta gives us the SOC 2 evidence chain every multi-location operator asks for on call two") is unchanged. We're not fabricating audit evidence — we're mocking the *integration* that would exist on day one of the real product.
-
-**Do NOT claim we have actual SOC 2 compliance in the pitch.** Claim we have the monitoring infrastructure to achieve it. The latter is true the moment we connect a real Vanta tenant post-hackathon.
+We are NOT claiming SOC 2 certification. The trust page copy says "monitored by Vanta," not "certified." The published `/trust/aims` ISO 42001 AI Impact Assessment is real product work — purpose, data flows, human-in-the-loop gates, risk register, rollback procedure — not boilerplate. The pre-flight gate makes Vanta a load-bearing dependency: rip it out and the dispute agent loses its compliance check.
 
 ---
 

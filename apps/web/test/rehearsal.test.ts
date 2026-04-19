@@ -156,7 +156,8 @@ describe("Rehearsal — the full demo walk-through", () => {
     const escalateT0 = Date.now();
     const escRes = await callJsonRoute<{
       mode: string;
-      elevenLabsConversationId?: string;
+      conversationId?: string;
+      callSid?: string;
       twilioCallSid?: string;
       payload: Record<string, string>;
     }>(
@@ -168,7 +169,8 @@ describe("Rehearsal — the full demo walk-through", () => {
     const escalateMs = Date.now() - escalateT0;
     expect(escRes.status).toBe(200);
     expect(escRes.body.mode).toBe("live");
-    expect(escRes.body.elevenLabsConversationId).toBe("conv_rehearsal_42");
+    expect(escRes.body.conversationId).toBe("conv_rehearsal_42");
+    expect(escRes.body.callSid).toBe("CArehearsaltest");
     expect(escRes.body.twilioCallSid).toBe("CArehearsaltest");
     expect(escRes.body.payload.toNumber).toBe("+15551234567");
     expect(escRes.body.payload.candidateId).toBe(pick.id);

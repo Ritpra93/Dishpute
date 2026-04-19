@@ -1,5 +1,6 @@
 "use client";
 
+import { ShieldCheck, ShieldAlert } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -9,10 +10,17 @@ import {
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { MeritBadge } from "./merit-badge";
 import { StatusBadge } from "./status-badge";
 import { formatCentsPrecise, relativeTime } from "@/lib/utils";
 import type { EnrichedDispute } from "@/lib/types";
+import type { EscalateResult } from "./dashboard-client";
 
 interface Props {
   dispute: EnrichedDispute | null;
@@ -20,6 +28,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   onEscalate?: (id: string) => void;
   isEscalating?: boolean;
+  escalateResult?: EscalateResult | null;
 }
 
 const CHARGE_TYPE_LABEL: Record<string, string> = {
@@ -37,6 +46,7 @@ export function DisputeDetailSheet({
   onOpenChange,
   onEscalate,
   isEscalating,
+  escalateResult,
 }: Props) {
   if (!dispute) return null;
   const c = dispute.classification;
@@ -144,6 +154,95 @@ export function DisputeDetailSheet({
               >
                 {isEscalating ? "Calling support…" : "Escalate to voice agent"}
               </Button>
+
+              {escalateResult && escalateResult.candidateId === dispute.id && (
+                <div className="mt-3 rounded-md border bg-background p-3 text-xs">
+                  {(escalateResult.kind === "live" || escalateResult.kind === "stubbed") &&
+                    escalateResult.vantaGate && (
+                      <VantaGatePassedBadge gate={escalateResult.vantaGate} />
+                    )}
+                  {escalateResult.kind === "live" && (
+                    <>
+                      <p className="font-semibold text-money">
+                        Call placed
+                        {escalateResult.toNumber ? (
+                          <>
+                            {" "}
+                            · dialing{" "}
+                            <span className="font-mono">{escalateResult.toNumber}</span>
+                          </>
+                        ) : null}
+                      </p>
+                      {escalateResult.conversationId && (
+                        <p className="mt-1 text-muted-foreground">
+                          conversation{" "}
+                          <span className="font-mono">
+                            {escalateResult.conversationId}
+                          </span>
+                        </p>
+                      )}
+                      {escalateResult.callSid && (
+                        <p className="mt-1 text-muted-foreground">
+                          callSid{" "}
+                          <span className="font-mono">{escalateResult.callSid}</span>
+                        </p>
+                      )}
+                    </>
+                  )}
+                  {escalateResult.kind === "stubbed" && (
+                    <>
+                      <p className="font-semibold">Stubbed escalation</p>
+                      <p className="mt-1 text-muted-foreground">
+                        {escalateResult.message}
+                      </p>
+                    </>
+                  )}
+                  {escalateResult.kind === "blocked" && (
+                    <>
+                      <p className="flex items-center gap-1.5 font-semibold text-destructive">
+                        <ShieldAlert className="size-3.5" />
+                        Blocked by Vanta pre-flight
+                      </p>
+                      <p className="mt-1 text-muted-foreground">{escalateResult.reason}</p>
+                      {escalateResult.failingCritical.length > 0 && (
+                        <ul className="mt-2 space-y-0.5 text-muted-foreground">
+                          {escalateResult.failingCritical.map((t) => (
+                            <li key={t.id} className="flex items-start gap-1.5">
+                              <span aria-hidden className="text-destructive">·</span>
+                              <span>
+                                <span className="font-medium text-foreground">{t.name}</span>
+                                <span className="ml-1 uppercase tracking-wider">
+                                  ({t.category})
+                                </span>
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <p className="mt-2 text-muted-foreground">
+                        {escalateResult.controlsChecked} control(s) evaluated · the agent will
+                        not act until these are remediated.
+                      </p>
+                    </>
+                  )}
+                  {escalateResult.kind === "error" && (
+                    <>
+                      <p className="font-semibold text-destructive">
+                        Escalation failed
+                        {escalateResult.code === "voice_unreachable"
+                          ? " — apps/voice unreachable"
+                          : escalateResult.code === "voice_upstream_error"
+                            ? ` — apps/voice returned ${escalateResult.upstreamStatus ?? "an error"}`
+                            : ""}
+                      </p>
+                      <p className="mt-1 text-muted-foreground">
+                        {escalateResult.hint ??
+                          "Check the apps/voice server logs and ELEVENLABS_* env vars."}
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -160,5 +259,41 @@ function Section({ label, children }: { label: string; children: React.ReactNode
       </p>
       {children}
     </div>
+  );
+}
+
+function VantaGatePassedBadge({
+  gate,
+}: {
+  gate: { source: "live" | "fixture" | "unreachable"; controlsChecked: number };
+}) {
+  const sourceLabel =
+    gate.source === "live"
+      ? "live Vanta tenant"
+      : gate.source === "fixture"
+        ? "fixture data"
+        : "unreachable, failed open";
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge
+            variant="money"
+            className="mb-2 inline-flex cursor-help items-center gap-1.5 px-2 py-0.5 text-[10px]"
+          >
+            <ShieldCheck className="size-3" /> Vanta pre-flight: passed
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs text-xs">
+          <p className="font-semibold">Vanta pre-flight gate</p>
+          <p className="mt-1 text-muted-foreground">
+            {gate.controlsChecked} SOC 2 control(s) evaluated against critical categories
+            (data_security, access_control, ai_governance) before this autonomous action was
+            authorized.
+          </p>
+          <p className="mt-1 text-muted-foreground">Source: {sourceLabel}.</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

@@ -18,6 +18,8 @@ dist/
 *.db-journal
 *.db-wal
 *.db-shm
+*.sqlite
+*.sqlite-journal
 
 # Logs
 *.log
@@ -33,6 +35,16 @@ pnpm-debug.log*
 # Claude Code local settings — DO NOT COMMIT (personal per-worker)
 .claude/settings.local.json
 
+# MCP server config — contains personal access tokens; commit .mcp.json.example instead
+.mcp.json
+
+# Private keys / certificates — never commit
+*.pem
+*.key
+*.crt
+*.p12
+id_rsa*
+
 # OS
 .DS_Store
 Thumbs.db
@@ -41,4 +53,7 @@ Thumbs.db
 counter.db
 *.pid
 *.seed
-.coverage/
+
+# Test coverage
+coverage/
+.nyc_output/

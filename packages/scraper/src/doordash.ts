@@ -11,6 +11,41 @@ import { runTinyFish } from "./tinyfish";
 
 const MOCK_PORTAL_URL = process.env["MOCK_PORTAL_URL"] ?? "http://localhost:3000/mock-portal/disputes";
 
+/**
+ * Allowlist of URL prefixes we are willing to hand to TinyFish. Anything else is rejected.
+ *
+ * This protects against a delegated-SSRF style attack where a poisoned `portalUrl` (from a
+ * malicious fixture, DB row, or upstream API) could direct our paid TinyFish session at an
+ * internal/metadata endpoint or unrelated third party.
+ */
+const PORTAL_URL_ALLOWLIST: readonly string[] = [
+  MOCK_PORTAL_URL,
+  "https://merchant-portal.doordash.com/",
+  "https://www.doordash.com/merchant/",
+  ...(process.env["EXTRA_PORTAL_URL_PREFIX"]
+    ? [process.env["EXTRA_PORTAL_URL_PREFIX"] as string]
+    : []),
+];
+
+function assertAllowedPortalUrl(rawUrl: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error(`Refusing to drive TinyFish at non-URL portal target: ${rawUrl}`);
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(`Refusing to drive TinyFish at non-http(s) portal target: ${parsed.protocol}`);
+  }
+  const ok = PORTAL_URL_ALLOWLIST.some((prefix) => rawUrl.startsWith(prefix));
+  if (!ok) {
+    throw new Error(
+      `Refusing to drive TinyFish at portal URL outside allowlist: ${parsed.origin}${parsed.pathname}`
+    );
+  }
+  return rawUrl;
+}
+
 function isValidChargeType(value: unknown): value is ErrorChargeType {
   return (
     value === "missing_item" ||
@@ -134,8 +169,9 @@ export async function submitDispute(opts: {
   candidate: DisputeCandidate;
   draftedText: string;
 }): Promise<SubmissionResult> {
+  const portalUrl = assertAllowedPortalUrl(opts.candidate.portalUrl);
   const goal = `
-Navigate to ${opts.candidate.portalUrl}.
+Navigate to ${portalUrl}.
 Find the "Dispute charge" button and click it.
 In the resulting form, find the textarea or input labelled "Your response" and paste exactly this text (do not modify it):
 ---
@@ -146,7 +182,7 @@ Extract the confirmation ID (format: CONF-XXXXXX) from the confirmation screen.
 Return ONLY a JSON object: { "confirmationId": string }
 `;
 
-  const result = await runTinyFish({ url: opts.candidate.portalUrl, goal });
+  const result = await runTinyFish({ url: portalUrl, goal });
 
   const r = result as Record<string, unknown>;
   const confirmationId = typeof r["confirmationId"] === "string" ? r["confirmationId"] : undefined;

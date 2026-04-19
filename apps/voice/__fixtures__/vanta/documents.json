@@ -1,0 +1,55 @@
+{
+  "results": {
+    "data": [
+      {
+        "id": "doc_security_policy",
+        "name": "Information Security Policy v2.4",
+        "documentType": "policy",
+        "status": "approved",
+        "controlIds": ["ctrl_access_review", "ctrl_encryption_at_rest"],
+        "lastReviewedAt": "2026-02-01T00:00:00.000Z",
+        "uploadedAt": "2025-04-01T00:00:00.000Z"
+      },
+      {
+        "id": "doc_aims_dispute_agent",
+        "name": "ISO 42001 AI Impact Assessment - Dispute Agent",
+        "documentType": "ai_governance_assessment",
+        "status": "approved",
+        "controlIds": ["ctrl_audit_logging", "ctrl_human_in_loop"],
+        "lastReviewedAt": "2026-04-10T00:00:00.000Z",
+        "uploadedAt": "2026-03-22T00:00:00.000Z"
+      },
+      {
+        "id": "doc_incident_response_plan",
+        "name": "Incident Response Plan v1.7",
+        "documentType": "policy",
+        "status": "approved",
+        "controlIds": ["ctrl_incident_response"],
+        "lastReviewedAt": "2026-03-22T00:00:00.000Z",
+        "uploadedAt": "2025-06-12T00:00:00.000Z"
+      },
+      {
+        "id": "doc_data_retention",
+        "name": "Data Retention Policy",
+        "documentType": "policy",
+        "status": "approved",
+        "controlIds": ["ctrl_encryption_at_rest"],
+        "lastReviewedAt": "2026-01-15T00:00:00.000Z",
+        "uploadedAt": "2025-04-01T00:00:00.000Z"
+      },
+      {
+        "id": "doc_vendor_register",
+        "name": "Vendor Risk Register",
+        "documentType": "register",
+        "status": "in_review",
+        "controlIds": ["ctrl_vendor_review"],
+        "lastReviewedAt": "2025-12-01T00:00:00.000Z",
+        "uploadedAt": "2025-04-01T00:00:00.000Z"
+      }
+    ],
+    "pageInfo": {
+      "endCursor": null,
+      "hasNextPage": false
+    }
+  }
+}

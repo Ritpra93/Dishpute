@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@elevenlabs/elevenlabs-js": "^2.0.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@vantasdk/vanta-mcp-server": "^1.2.0",
     "better-sqlite3": "^12.9.0",
     "cors": "^2.8.5",
     "express": "^4.21.2",

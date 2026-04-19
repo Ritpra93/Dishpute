@@ -183,8 +183,13 @@ describe("Beat 4 — Exactly 1 of the 3 denied rows is eligible for voice escala
       expect(body.payload.merchantName).toBe("House of Curry");
       expect(body.payload.denialReason).toMatch(/denied|evidence/i);
 
-      expect(fetchSpy).toHaveBeenCalledTimes(1);
-      const [url, init] = fetchSpy.mock.calls[0]!;
+      // Filter to the voice-service call only (escalate now also pings Vanta
+      // for a pre-flight gate, which fails-open here since we haven't mocked it).
+      const voiceCalls = fetchSpy.mock.calls.filter(([u]) =>
+        String(u).includes("/calls/outbound"),
+      );
+      expect(voiceCalls).toHaveLength(1);
+      const [url, init] = voiceCalls[0]!;
       expect(url).toBe("http://fake-voice/calls/outbound");
       const forwarded = JSON.parse((init as RequestInit).body as string) as Record<
         string,

@@ -118,11 +118,17 @@ Rehearse this at hour 20 until it's second nature. Ritesh presents. One teammate
 
 ## Beat 7 — Trust + ask (8:30–9:30)
 
-*Click to `/trust` page. Judges see a "Monitored by Vanta" trust center — SOC 2 progress, 47 controls monitored, integration status.*
+*Click to `/trust` page. Judges see a "Monitored by Vanta" trust center — SOC 2 + ISO 42001 progress, 47 controls monitored, integration status. Click the "AI governance" card to surface `/trust/aims`: an ISO 42001 AI Impact Assessment for the dispute agent.*
 
-> "Finally — we know multi-location operators will ask about SOC 2 on call two. Counter is built on Vanta's continuous monitoring from day zero, so when a 10-location chain asks for a trust center, we have one to send.
+> "Counter is an agentic system handling money, so trust isn't a footer link — it's a load-bearing dependency. We earn and prove trust continuously, monitored by Vanta against SOC 2 and ISO 42001.
 >
-> This is a real business. The problem is real, the buyers are reachable, the architecture is defensible, and the unit economics work from day one.
+> Two things to call out. One: this isn't a logo on a slide. Our voice service speaks the official Vanta MCP protocol — same tool names: `frameworks`, `controls`, `tests`, `integrations`. Flip one env var and we're live against a tenant.
+>
+> Two: every autonomous action our agent takes runs through a Vanta pre-flight check. Watch — if I escalate this denial, the agent first asks Vanta whether our SOC 2 posture is healthy. If a critical control regresses, the agent stops acting on your behalf until it's remediated. That's compliance as a force multiplier, not decoration.
+>
+> The ISO 42001 AI Impact Assessment is published — purpose, data flows, human-in-the-loop gates, risk register, rollback procedure. Multi-location operators ask for these on call two. We have it.
+>
+> This is a real business. The problem is real, the buyers are reachable, the architecture is defensible, the trust posture is provable, and the unit economics work from day one.
 >
 > We want to keep building Counter. Thank you."
 

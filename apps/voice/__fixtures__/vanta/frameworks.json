@@ -1,0 +1,65 @@
+{
+  "results": {
+    "data": [
+      {
+        "id": "fw_soc2",
+        "name": "SOC 2 Type II",
+        "productFamily": "soc2",
+        "completionPercent": 84,
+        "status": "in_progress",
+        "controlsCount": 47,
+        "controlsCompletedCount": 39,
+        "nextAuditDate": "2026-09-12",
+        "createdAt": "2025-04-01T00:00:00.000Z"
+      },
+      {
+        "id": "fw_iso27001",
+        "name": "ISO 27001",
+        "productFamily": "iso27001",
+        "completionPercent": 62,
+        "status": "in_progress",
+        "controlsCount": 93,
+        "controlsCompletedCount": 58,
+        "nextAuditDate": null,
+        "createdAt": "2025-08-15T00:00:00.000Z"
+      },
+      {
+        "id": "fw_iso42001",
+        "name": "ISO 42001 (AI Management System)",
+        "productFamily": "iso42001",
+        "completionPercent": 48,
+        "status": "in_progress",
+        "controlsCount": 38,
+        "controlsCompletedCount": 18,
+        "nextAuditDate": null,
+        "createdAt": "2026-02-10T00:00:00.000Z"
+      },
+      {
+        "id": "fw_gdpr",
+        "name": "GDPR",
+        "productFamily": "gdpr",
+        "completionPercent": 91,
+        "status": "monitored",
+        "controlsCount": 24,
+        "controlsCompletedCount": 22,
+        "nextAuditDate": null,
+        "createdAt": "2025-04-01T00:00:00.000Z"
+      },
+      {
+        "id": "fw_ccpa",
+        "name": "CCPA",
+        "productFamily": "ccpa",
+        "completionPercent": 100,
+        "status": "monitored",
+        "controlsCount": 16,
+        "controlsCompletedCount": 16,
+        "nextAuditDate": null,
+        "createdAt": "2025-04-01T00:00:00.000Z"
+      }
+    ],
+    "pageInfo": {
+      "endCursor": null,
+      "hasNextPage": false
+    }
+  }
+}

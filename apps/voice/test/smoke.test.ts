@@ -74,16 +74,67 @@ describe("GET /health", () => {
   });
 });
 
-describe("GET /api/vanta/trust-center", () => {
-  it("returns the mocked Vanta payload with expected shape", async () => {
+describe("Vanta MCP-shaped endpoints (fixture mode)", () => {
+  it("GET /api/vanta/frameworks returns Vanta envelope with completion data", async () => {
+    const res = await fetch(`${baseUrl}/api/vanta/frameworks`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.source).toBe("fixture");
+    expect(body.fallbackReason).toBe("no_credentials");
+    expect(body.data.results.data.length).toBeGreaterThan(0);
+    const soc2 = body.data.results.data.find((f: { productFamily: string }) =>
+      f.productFamily === "soc2",
+    );
+    expect(soc2).toBeTruthy();
+    expect(typeof soc2.completionPercent).toBe("number");
+  });
+
+  it("GET /api/vanta/controls returns controls with status + framework mappings", async () => {
+    const res = await fetch(`${baseUrl}/api/vanta/controls`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.source).toBe("fixture");
+    const ctrl = body.data.results.data[0];
+    expect(ctrl.id).toBeTruthy();
+    expect(["passing", "failing", "needs_attention", "not_applicable"]).toContain(ctrl.status);
+    expect(Array.isArray(ctrl.frameworkIds)).toBe(true);
+  });
+
+  it("GET /api/vanta/tests filters by statusFilter when serving fixtures", async () => {
+    const res = await fetch(`${baseUrl}/api/vanta/tests?statusFilter=NEEDS_ATTENTION`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.source).toBe("fixture");
+    const tests = body.data.results.data;
+    expect(tests.length).toBeGreaterThan(0);
+    for (const t of tests) expect(t.status).toBe("NEEDS_ATTENTION");
+  });
+
+  it("GET /api/vanta/integrations returns connected integrations with resourceKinds", async () => {
+    const res = await fetch(`${baseUrl}/api/vanta/integrations`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.source).toBe("fixture");
+    const aws = body.data.results.data.find(
+      (i: { displayName: string }) => i.displayName === "AWS",
+    );
+    expect(aws.connectionStatus).toBe("CONNECTED");
+    expect(Array.isArray(aws.resourceKinds)).toBe(true);
+  });
+
+  it("GET /api/vanta/trust-center rolls up MCP tool calls into a dashboard summary", async () => {
     const res = await fetch(`${baseUrl}/api/vanta/trust-center`);
     expect(res.status).toBe(200);
     const body = await res.json();
+    expect(body.source).toBe("fixture");
     expect(body.organization).toBe("Counter");
-    expect(body.controls.total).toBeGreaterThan(0);
+    expect(body.monitoredBy).toBe("Vanta");
+    expect(body.summary.controlsTotal).toBeGreaterThan(0);
+    expect(body.summary.controlsPassing).toBeGreaterThan(0);
     expect(Array.isArray(body.frameworks)).toBe(true);
     expect(body.frameworks.length).toBeGreaterThan(0);
     expect(Array.isArray(body.integrations)).toBe(true);
+    expect(Array.isArray(body.recentEvents)).toBe(true);
   });
 });
 

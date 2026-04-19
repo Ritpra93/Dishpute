@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "tinyfish": {
+      "type": "http",
+      "url": "https://agent.tinyfish.ai/mcp"
+    },
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_PAT}"
+      }
+    },
+    "vanta": {
+      "command": "npx",
+      "args": ["-y", "@vantasdk/vanta-mcp-server"],
+      "env": {
+        "VANTA_ENV_FILE": "${VANTA_ENV_FILE}"
+      }
+    }
+  }
+}

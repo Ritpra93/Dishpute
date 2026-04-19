@@ -230,6 +230,39 @@ From `docs/VERIFIED_APIS.md`:
 - Escalate button fires a real call via Worker 4's service
 - `pnpm dev` in this directory boots the full app
 
+## Local dev gotchas — voice escalation runbook
+
+`POST /api/disputes/[id]/escalate` is wired to forward to apps/voice when
+`VOICE_ESCALATE_URL` is set; otherwise it stays in safe "stubbed" mode (no
+real phone call, but the UI still flips the dispute to `escalateToVoice=true`).
+
+To make the dashboard's **"Call platform"** button trigger a real outbound
+call, run **3 shells** in this order:
+
+```bash
+# Shell 1 — public tunnel for ElevenLabs webhooks (tools + post-call)
+ngrok http 4000
+# copy the https forwarding URL into .env.local as NGROK_PUBLIC_URL
+
+# Shell 2 — voice service (reads ELEVENLABS_API_KEY/AGENT_ID/PHONE_NUMBER_ID)
+pnpm -F @counter/voice dev
+
+# Shell 3 — dashboard (must export VOICE_ESCALATE_URL + DOORDASH_SUPPORT_NUMBER)
+VOICE_ESCALATE_URL=http://localhost:4000/calls/outbound \
+DOORDASH_SUPPORT_NUMBER=+15551234567 \
+  pnpm dev:web
+```
+
+Click "Call platform" on a denied dispute. The escalate response shape is:
+
+- `mode: "live"` + `conversationId` + `callSid` → real call placed (banner: green check)
+- `mode: "stubbed"` → `VOICE_ESCALATE_URL` not set (banner: gray info)
+- `code: "voice_unreachable"` (502) → apps/voice not running (banner: red, hint to run shell 2)
+- `code: "voice_upstream_error"` (502) → apps/voice returned non-2xx — check its logs for the ElevenLabs error
+
+The route never echoes upstream response bodies to the client — check
+`apps/voice` server logs (Shell 2) for the underlying ElevenLabs error.
+
 ## Rules
 
 1. **`apps/web/` only.**

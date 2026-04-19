@@ -1,0 +1,90 @@
+{
+  "results": {
+    "data": [
+      {
+        "id": "test_aws_s3_encryption",
+        "name": "S3 buckets encrypted at rest",
+        "status": "PASSING",
+        "category": "data_security",
+        "integrationFilter": "aws",
+        "frameworkFilter": "soc2",
+        "controlIds": ["ctrl_encryption_at_rest"],
+        "lastRunAt": "2026-04-18T02:00:00.000Z"
+      },
+      {
+        "id": "test_aws_cloudtrail",
+        "name": "CloudTrail logging enabled in all regions",
+        "status": "PASSING",
+        "category": "audit_logging",
+        "integrationFilter": "aws",
+        "frameworkFilter": "soc2",
+        "controlIds": ["ctrl_audit_logging"],
+        "lastRunAt": "2026-04-18T02:00:00.000Z"
+      },
+      {
+        "id": "test_github_mfa",
+        "name": "GitHub organization enforces MFA",
+        "status": "PASSING",
+        "category": "access_control",
+        "integrationFilter": "github",
+        "frameworkFilter": "soc2",
+        "controlIds": ["ctrl_access_review"],
+        "lastRunAt": "2026-04-17T22:14:00.000Z"
+      },
+      {
+        "id": "test_okta_admin_review",
+        "name": "Okta admin role assignments reviewed quarterly",
+        "status": "PASSING",
+        "category": "access_control",
+        "integrationFilter": "okta",
+        "frameworkFilter": "soc2",
+        "controlIds": ["ctrl_access_review"],
+        "lastRunAt": "2026-04-12T10:30:00.000Z"
+      },
+      {
+        "id": "test_anthropic_audit_trail",
+        "name": "Anthropic API calls captured in audit trail",
+        "status": "PASSING",
+        "category": "ai_governance",
+        "integrationFilter": "anthropic",
+        "frameworkFilter": "iso42001",
+        "controlIds": ["ctrl_audit_logging"],
+        "lastRunAt": "2026-04-18T01:02:00.000Z"
+      },
+      {
+        "id": "test_human_in_loop_enforced",
+        "name": "Voice escalation requires operator approval",
+        "status": "PASSING",
+        "category": "ai_governance",
+        "integrationFilter": "counter_internal",
+        "frameworkFilter": "iso42001",
+        "controlIds": ["ctrl_human_in_loop"],
+        "lastRunAt": "2026-04-18T01:02:00.000Z"
+      },
+      {
+        "id": "test_vendor_assessment_due",
+        "name": "Vendor risk assessment due in 14 days",
+        "status": "NEEDS_ATTENTION",
+        "category": "vendor_management",
+        "integrationFilter": "counter_internal",
+        "frameworkFilter": "soc2",
+        "controlIds": ["ctrl_vendor_review"],
+        "lastRunAt": "2026-04-14T12:45:00.000Z"
+      },
+      {
+        "id": "test_aws_iam_unused_creds",
+        "name": "IAM users without recent activity",
+        "status": "PASSING",
+        "category": "access_control",
+        "integrationFilter": "aws",
+        "frameworkFilter": "soc2",
+        "controlIds": ["ctrl_access_review"],
+        "lastRunAt": "2026-04-18T02:00:00.000Z"
+      }
+    ],
+    "pageInfo": {
+      "endCursor": null,
+      "hasNextPage": false
+    }
+  }
+}

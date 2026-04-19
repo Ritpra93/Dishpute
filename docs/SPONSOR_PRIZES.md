@@ -51,6 +51,28 @@ These are our main targets. Both judged on:
 - [ ] Pre-recorded backup audio for wifi-fail fallback
 - [ ] Agent identifies as "automated agent calling on behalf of House of Curry" — honest disclosure, not pretending to be human
 
+### Vanta (agentic trust — $1,000)
+
+**Why Counter needs it:** Counter is an agentic system that takes autonomous actions affecting money — classification, evidence assembly, voice escalation. The ISO 42001 AI Management System standard exists for exactly this category of product. Multi-location operators ask for SOC 2 + AI governance documentation on call two. Vanta is how we earn and prove trust continuously instead of treating compliance as a back-office concern.
+
+**Where it shows up in code:**
+- `apps/voice/src/lib/vanta-mcp.ts` — `VantaMcpClient` that speaks the official Vanta MCP protocol over stdio (`@vantasdk/vanta-mcp-server`). Falls back to local fixtures shaped like real Vanta API responses when no tenant credentials are configured.
+- `apps/voice/src/routes/vanta.ts` — REST endpoints whose paths and shapes mirror the official Vanta MCP tool surface (`frameworks`, `controls`, `tests`, `integrations`, `documents`).
+- `apps/web/lib/vanta-gate.ts` + `apps/web/app/api/disputes/[id]/escalate/route.ts` — pre-flight compliance gate: every voice escalation queries Vanta for failing critical tests (data_security, access_control, ai_governance) and returns 409 Conflict if any are found. This is the AgentSafe pattern from the AWS AI Agents Hackathon — Vanta as load-bearing infrastructure, not decoration.
+- `apps/web/app/trust/page.tsx` — trust center bound to the live MCP-shaped data.
+- `apps/web/app/trust/aims/page.tsx` — published ISO 42001 AI Impact Assessment for the dispute agent (purpose, data flows, human-in-the-loop gates, risk register, rollback procedure).
+- `.mcp.json.example` — official Vanta MCP server entry so any developer using Cursor or Claude Desktop talks to the same MCP server end-to-end.
+
+**Demo moment:** Beat 7 — click `/trust`, then click "AI governance" to surface `/trust/aims`. Then escalate a denial in front of the judge: the dispute detail sheet shows a "Vanta pre-flight: passed" badge with a tooltip explaining which critical control categories were evaluated. Pitch verbatim: *"Every autonomous action runs through a Vanta pre-flight check — if our SOC 2 posture degrades, the agent stops acting on your behalf."*
+
+**Submission checklist:**
+- [ ] Speaks the official `@vantasdk/vanta-mcp-server` protocol (stdio MCP)
+- [ ] Tool names match the Vanta MCP surface (`frameworks`, `controls`, `tests`, `integrations`, `documents`)
+- [ ] Pre-flight gate is in the critical path of an autonomous action (escalate → 409 if compliance fails)
+- [ ] ISO 42001 AI Impact Assessment published at `/trust/aims`
+- [ ] Pitch uses Vanta vocabulary verbatim: "agentic trust," "earn and prove trust continuously," "force multiplier for compliance"
+- [ ] One env var (`VANTA_ENV_FILE`) flips fixture mode to live tenant — same code path
+
 ### Stripe (contingency payouts)
 
 **Why Counter needs it:** The business model is "we take 20% of recovered funds." That requires splitting recovered funds — platform deposits to merchant, we pull our fee. Stripe Connect handles this. Without Stripe, monetization is manual invoicing, which is not a startup.
@@ -70,9 +92,6 @@ These are our main targets. Both judged on:
 - [ ] Stripe test keys in `.env.local`
 
 ## Skipping these prizes
-
-### Vanta
-No self-serve trial. Mocked MCP server with realistic fixtures. Narrative is still included in the pitch (Beat 7: trust center) but not a prize target.
 
 ### AWS Kiro
 Spec-driven workflow adds too much overhead for a beginner team in 24 hours. Cleaner to skip entirely than half-implement.

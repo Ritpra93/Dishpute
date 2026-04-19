@@ -1,0 +1,80 @@
+{
+  "results": {
+    "data": [
+      {
+        "id": "ctrl_access_review",
+        "name": "Quarterly access reviews",
+        "description": "All access to production systems is reviewed quarterly by a workspace admin.",
+        "category": "access_control",
+        "status": "passing",
+        "frameworkIds": ["fw_soc2", "fw_iso27001"],
+        "ownerEmail": "security@counter.com",
+        "lastEvaluatedAt": "2026-04-17T09:14:00.000Z"
+      },
+      {
+        "id": "ctrl_encryption_at_rest",
+        "name": "Encryption at rest",
+        "description": "Customer data, including dispute evidence, is encrypted at rest using AES-256.",
+        "category": "data_security",
+        "status": "passing",
+        "frameworkIds": ["fw_soc2", "fw_iso27001", "fw_gdpr"],
+        "ownerEmail": "security@counter.com",
+        "lastEvaluatedAt": "2026-04-15T03:18:00.000Z"
+      },
+      {
+        "id": "ctrl_audit_logging",
+        "name": "Audit logging for autonomous agent actions",
+        "description": "Every autonomous action taken by Counter's dispute agent is recorded in an immutable audit log with operator identity, timestamp, and rollback hash.",
+        "category": "ai_governance",
+        "status": "passing",
+        "frameworkIds": ["fw_soc2", "fw_iso42001"],
+        "ownerEmail": "security@counter.com",
+        "lastEvaluatedAt": "2026-04-18T01:02:00.000Z"
+      },
+      {
+        "id": "ctrl_human_in_loop",
+        "name": "Human-in-the-loop gate before outbound escalation",
+        "description": "Voice escalations require explicit operator approval. The agent cannot dial out autonomously.",
+        "category": "ai_governance",
+        "status": "passing",
+        "frameworkIds": ["fw_iso42001"],
+        "ownerEmail": "product@counter.com",
+        "lastEvaluatedAt": "2026-04-18T01:02:00.000Z"
+      },
+      {
+        "id": "ctrl_vendor_review",
+        "name": "Annual vendor risk assessment",
+        "description": "All third-party vendors handling customer data complete an annual risk assessment.",
+        "category": "vendor_management",
+        "status": "needs_attention",
+        "frameworkIds": ["fw_soc2"],
+        "ownerEmail": "security@counter.com",
+        "lastEvaluatedAt": "2026-04-14T12:45:00.000Z"
+      },
+      {
+        "id": "ctrl_background_check",
+        "name": "Background checks for new hires",
+        "description": "All new employees with access to customer data complete a background check before start date.",
+        "category": "human_resources",
+        "status": "passing",
+        "frameworkIds": ["fw_soc2"],
+        "ownerEmail": "people@counter.com",
+        "lastEvaluatedAt": "2026-04-17T09:14:00.000Z"
+      },
+      {
+        "id": "ctrl_incident_response",
+        "name": "Incident response plan tested annually",
+        "description": "Counter maintains a documented incident response plan and runs at least one tabletop exercise per year.",
+        "category": "incident_management",
+        "status": "passing",
+        "frameworkIds": ["fw_soc2", "fw_iso27001"],
+        "ownerEmail": "security@counter.com",
+        "lastEvaluatedAt": "2026-03-22T17:00:00.000Z"
+      }
+    ],
+    "pageInfo": {
+      "endCursor": null,
+      "hasNextPage": false
+    }
+  }
+}

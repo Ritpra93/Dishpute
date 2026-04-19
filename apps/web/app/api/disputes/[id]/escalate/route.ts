@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getCandidate, getClassification, upsertOutcome } from "@/lib/repo";
 import { parseJson, parseParam } from "@/lib/parse-request";
 import { DEMO_MERCHANT } from "@/lib/types";
+import { preflight as vantaPreflight } from "@/lib/vanta-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,31 @@ export async function POST(
     );
   }
 
+  // Vanta pre-flight gate (the AgentSafe pattern): refuse to take an
+  // autonomous action while critical SOC 2 controls are failing. We perform
+  // this check BEFORE writing any outcome state so a blocked escalation
+  // leaves the dispute in its prior state.
+  const gate = await vantaPreflight();
+  if (!gate.allowed) {
+    console.warn("[escalate] blocked by Vanta pre-flight gate", {
+      candidateId: id,
+      failingCritical: gate.failingCritical,
+    });
+    return NextResponse.json(
+      {
+        error: gate.blockedReason ?? "Blocked by Vanta pre-flight gate.",
+        code: "vanta_pre_flight_blocked",
+        candidateId: id,
+        gate: {
+          source: gate.source,
+          controlsChecked: gate.controlsChecked,
+          failingCritical: gate.failingCritical,
+        },
+      },
+      { status: 409 },
+    );
+  }
+
   upsertOutcome({
     candidateId: id,
     outcome: "denied",
@@ -75,6 +101,12 @@ export async function POST(
     denialReason,
   };
 
+  const gateMeta = {
+    source: gate.source,
+    controlsChecked: gate.controlsChecked,
+    passed: true,
+  };
+
   const voiceUrl = process.env["VOICE_ESCALATE_URL"];
   if (!voiceUrl) {
     return NextResponse.json({
@@ -83,8 +115,9 @@ export async function POST(
       conversationId: `convo_stub_${id}`,
       callSid: `CA_stub_${id}`,
       payload: voicePayload,
+      vantaGate: gateMeta,
       message:
-        "apps/voice not wired up — set VOICE_ESCALATE_URL to enable real escalation.",
+        "VOICE_ESCALATE_URL not set — no real phone call placed. See .env.example for the demo runbook.",
     });
   }
 
@@ -95,22 +128,36 @@ export async function POST(
       body: JSON.stringify(voicePayload),
     });
     if (!upstream.ok) {
+      // Read but DO NOT return the upstream body — log server-side only.
       const upstreamBody = await upstream.text().catch(() => "");
       console.error("[escalate] voice upstream failed", {
         status: upstream.status,
         body: upstreamBody.slice(0, 500),
       });
       return NextResponse.json(
-        { error: "Voice escalation failed", candidateId: id },
+        {
+          error: "Voice escalation failed",
+          code: "voice_upstream_error",
+          upstreamStatus: upstream.status,
+          candidateId: id,
+        },
         { status: 502 }
       );
     }
-    const data = await upstream.json();
+    const data = (await upstream.json()) as {
+      elevenLabsConversationId?: string;
+      twilioCallSid?: string;
+      startedAt?: string;
+    };
     return NextResponse.json({
       candidateId: id,
       mode: "live",
       payload: voicePayload,
-      ...data,
+      vantaGate: gateMeta,
+      conversationId: data.elevenLabsConversationId,
+      callSid: data.twilioCallSid,
+      twilioCallSid: data.twilioCallSid,
+      startedAt: data.startedAt,
     });
   } catch (err) {
     console.error("[escalate] voice request errored", {
@@ -118,7 +165,12 @@ export async function POST(
       error: err instanceof Error ? err.message : String(err),
     });
     return NextResponse.json(
-      { error: "Voice escalation failed", candidateId: id },
+      {
+        error: "Voice escalation failed",
+        code: "voice_unreachable",
+        hint: "Is apps/voice running? Try `pnpm -F @counter/voice dev`.",
+        candidateId: id,
+      },
       { status: 502 }
     );
   }

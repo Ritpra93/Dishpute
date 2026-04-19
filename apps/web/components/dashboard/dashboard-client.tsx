@@ -5,14 +5,18 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
+  AlertCircle,
   ArrowUpRight,
+  CheckCircle2,
   CircleDollarSign,
   CornerDownRight,
+  Info,
   Loader2,
   PhoneOutgoing,
   Search,
   ShieldCheck,
   Send,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,6 +45,44 @@ interface Props {
   initialStats: DashboardStats;
 }
 
+/** Vanta pre-flight gate metadata returned by /api/disputes/[id]/escalate. */
+export interface VantaGateInfo {
+  source: "live" | "fixture" | "unreachable";
+  controlsChecked: number;
+  passed: boolean;
+}
+
+/** Result of an escalation, surfaced as a banner/toast in the UI. */
+export type EscalateResult =
+  | {
+      kind: "live";
+      candidateId: string;
+      conversationId?: string;
+      callSid?: string;
+      toNumber?: string;
+      vantaGate?: VantaGateInfo;
+    }
+  | {
+      kind: "stubbed";
+      candidateId: string;
+      message: string;
+      vantaGate?: VantaGateInfo;
+    }
+  | {
+      kind: "blocked";
+      candidateId: string;
+      reason: string;
+      failingCritical: Array<{ id: string; name: string; category: string }>;
+      controlsChecked: number;
+    }
+  | {
+      kind: "error";
+      candidateId: string;
+      code?: "voice_unreachable" | "voice_upstream_error";
+      hint?: string;
+      upstreamStatus?: number;
+    };
+
 const CHARGE_TYPE_LABEL: Record<string, string> = {
   missing_item: "Missing item",
   wrong_item: "Wrong item",
@@ -60,6 +102,7 @@ export function DashboardClient({ initialDisputes, initialStats }: Props) {
   const [scanProgress, setScanProgress] = useState(0);
   const [isSubmittingAll, setIsSubmittingAll] = useState(false);
   const [escalatingId, setEscalatingId] = useState<string | null>(null);
+  const [escalateResult, setEscalateResult] = useState<EscalateResult | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [, startTransition] = useTransition();
@@ -110,13 +153,83 @@ export function DashboardClient({ initialDisputes, initialStats }: Props) {
   const onEscalate = useCallback(
     async (id: string) => {
       setEscalatingId(id);
+      setEscalateResult(null);
       try {
-        await fetch(`/api/disputes/${id}/escalate`, {
+        const res = await fetch(`/api/disputes/${id}/escalate`, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ reason: "platform_denied" }),
         });
+        const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+        const gate =
+          body.vantaGate && typeof body.vantaGate === "object"
+            ? (body.vantaGate as VantaGateInfo)
+            : undefined;
+        if (!res.ok) {
+          if (body.code === "vanta_pre_flight_blocked") {
+            const gateBody = (body.gate ?? {}) as {
+              controlsChecked?: number;
+              failingCritical?: Array<{ id: string; name: string; category: string }>;
+            };
+            setEscalateResult({
+              kind: "blocked",
+              candidateId: id,
+              reason:
+                typeof body.error === "string"
+                  ? body.error
+                  : "Blocked by Vanta pre-flight gate.",
+              failingCritical: gateBody.failingCritical ?? [],
+              controlsChecked: gateBody.controlsChecked ?? 0,
+            });
+          } else {
+            const code =
+              body.code === "voice_unreachable" || body.code === "voice_upstream_error"
+                ? body.code
+                : undefined;
+            setEscalateResult({
+              kind: "error",
+              candidateId: id,
+              code,
+              hint: typeof body.hint === "string" ? body.hint : undefined,
+              upstreamStatus:
+                typeof body.upstreamStatus === "number" ? body.upstreamStatus : undefined,
+            });
+          }
+        } else if (body.mode === "live") {
+          setEscalateResult({
+            kind: "live",
+            candidateId: id,
+            conversationId:
+              typeof body.conversationId === "string" ? body.conversationId : undefined,
+            callSid: typeof body.callSid === "string" ? body.callSid : undefined,
+            toNumber:
+              body.payload && typeof (body.payload as { toNumber?: unknown }).toNumber === "string"
+                ? ((body.payload as { toNumber: string }).toNumber)
+                : undefined,
+            vantaGate: gate,
+          });
+        } else {
+          setEscalateResult({
+            kind: "stubbed",
+            candidateId: id,
+            message:
+              typeof body.message === "string"
+                ? body.message
+                : "Voice service not configured.",
+            vantaGate: gate,
+          });
+        }
         await refresh();
+      } catch (err) {
+        setEscalateResult({
+          kind: "error",
+          candidateId: id,
+          code: "voice_unreachable",
+          hint:
+            err instanceof Error
+              ? `Network error: ${err.message}`
+              : "Network error reaching /api/disputes/[id]/escalate.",
+        });
       } finally {
         setEscalatingId(null);
       }
@@ -183,6 +296,13 @@ export function DashboardClient({ initialDisputes, initialStats }: Props) {
           </Link>
         </div>
       </header>
+
+      {escalateResult && (
+        <EscalateBanner
+          result={escalateResult}
+          onDismiss={() => setEscalateResult(null)}
+        />
+      )}
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="bg-money-soft">
@@ -471,7 +591,133 @@ export function DashboardClient({ initialDisputes, initialStats }: Props) {
         onOpenChange={(o) => !o && setActiveId(null)}
         onEscalate={onEscalate}
         isEscalating={escalatingId !== null}
+        escalateResult={
+          escalateResult && active && escalateResult.candidateId === active.id
+            ? escalateResult
+            : null
+        }
       />
+    </div>
+  );
+}
+
+function EscalateBanner({
+  result,
+  onDismiss,
+}: {
+  result: EscalateResult;
+  onDismiss: () => void;
+}) {
+  const tone =
+    result.kind === "live"
+      ? "border-money/30 bg-money-soft/30 text-foreground"
+      : result.kind === "stubbed"
+        ? "border-border bg-muted/30 text-foreground"
+        : "border-destructive/30 bg-destructive/5 text-foreground";
+
+  const Icon =
+    result.kind === "live"
+      ? CheckCircle2
+      : result.kind === "stubbed"
+        ? Info
+        : result.kind === "blocked"
+          ? ShieldCheck
+          : AlertCircle;
+  const iconTone =
+    result.kind === "live"
+      ? "text-money"
+      : result.kind === "stubbed"
+        ? "text-muted-foreground"
+        : "text-destructive";
+
+  return (
+    <div
+      role="status"
+      className={`mt-6 flex items-start gap-3 rounded-lg border p-3 text-sm ${tone}`}
+    >
+      <Icon className={`mt-0.5 size-4 shrink-0 ${iconTone}`} />
+      <div className="min-w-0 flex-1">
+        {result.kind === "live" && (
+          <>
+            <p className="font-medium">
+              Call placed for{" "}
+              <span className="font-mono text-xs">{result.candidateId}</span>
+              {result.toNumber ? (
+                <>
+                  {" "}
+                  · dialing <span className="font-mono">{result.toNumber}</span>
+                </>
+              ) : null}
+            </p>
+            {(result.conversationId || result.callSid) && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {result.conversationId && (
+                  <>
+                    conversation{" "}
+                    <span className="font-mono">{result.conversationId}</span>
+                  </>
+                )}
+                {result.conversationId && result.callSid && " · "}
+                {result.callSid && (
+                  <>
+                    callSid <span className="font-mono">{result.callSid}</span>
+                  </>
+                )}
+              </p>
+            )}
+          </>
+        )}
+
+        {result.kind === "stubbed" && (
+          <>
+            <p className="font-medium">
+              Stubbed escalation for{" "}
+              <span className="font-mono text-xs">{result.candidateId}</span> — no real
+              phone call placed.
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">{result.message}</p>
+          </>
+        )}
+
+        {result.kind === "blocked" && (
+          <>
+            <p className="font-medium">
+              Blocked by Vanta pre-flight for{" "}
+              <span className="font-mono text-xs">{result.candidateId}</span>
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {result.reason} {result.controlsChecked} control(s) evaluated;{" "}
+              {result.failingCritical.length} critical test(s) need attention.
+            </p>
+          </>
+        )}
+
+        {result.kind === "error" && (
+          <>
+            <p className="font-medium">
+              Escalation failed for{" "}
+              <span className="font-mono text-xs">{result.candidateId}</span>
+              {result.code === "voice_unreachable"
+                ? " — apps/voice unreachable"
+                : result.code === "voice_upstream_error"
+                  ? ` — apps/voice returned ${result.upstreamStatus ?? "an error"}`
+                  : null}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {result.hint ??
+                "Check the apps/voice server logs and ELEVENLABS_* env vars."}
+            </p>
+          </>
+        )}
+      </div>
+      <button
+        type="button"
+        aria-label="Dismiss"
+        onClick={onDismiss}
+        className="rounded p-1 text-muted-foreground hover:bg-background hover:text-foreground"
+      >
+        <X className="size-3.5" />
+      </button>
     </div>
   );
 }

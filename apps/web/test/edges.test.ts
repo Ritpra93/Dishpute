@@ -5,7 +5,7 @@
  * prove it by running the failure case AND the success case and asserting
  * the consumer doesn't crash + produces the documented state.
  */
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanupDb, callJsonRoute, getJsonRoute, useTempDb } from "./helpers";
 
 const DB_PATH = useTempDb("edges");
@@ -196,6 +196,83 @@ describe("P3.5 — Escalate without voice URL configured", () => {
     expect(body.mode).toBe("stubbed");
     // Still gives UI everything it needs to show "calling..." state.
     expect(body.payload).toBeTruthy();
+  });
+});
+
+// ─── P3.5b — Vanta pre-flight gate blocks when critical tests fail ─────────
+
+describe("P3.5b — Vanta pre-flight gate", () => {
+  beforeEach(async () => {
+    await callJsonRoute(scanRoute.POST, "http://localhost/api/scan", { platform: "doordash", reset: true });
+    await callJsonRoute(submitAllRoute.POST, "http://localhost/api/disputes/submit-all");
+    delete process.env.VOICE_ESCALATE_URL;
+  });
+
+  it("returns 409 with vanta_pre_flight_blocked when a critical test is failing", async () => {
+    // Stub fetch so the gate sees a critical access_control test in NEEDS_ATTENTION.
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(
+      async () =>
+        new Response(
+          JSON.stringify({
+            source: "live",
+            data: {
+              results: {
+                data: [
+                  {
+                    id: "test_aws_iam",
+                    name: "IAM users without MFA",
+                    status: "NEEDS_ATTENTION",
+                    category: "access_control",
+                    integrationFilter: "aws",
+                    frameworkFilter: "soc2",
+                  },
+                ],
+                pageInfo: { endCursor: null, hasNextPage: false },
+              },
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+    );
+
+    try {
+      const { status, body } = await callJsonRoute<{
+        code: string;
+        gate: { failingCritical: Array<{ id: string }> };
+      }>(
+        escalateRoute.POST,
+        "http://localhost/api/disputes/disp_0008/escalate",
+        {},
+        { params: Promise.resolve({ id: "disp_0008" }) },
+      );
+      expect(status).toBe(409);
+      expect(body.code).toBe("vanta_pre_flight_blocked");
+      expect(body.gate.failingCritical[0]!.id).toBe("test_aws_iam");
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("fails open and returns 200 when Vanta is unreachable (offline rehearsal)", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => {
+        throw new Error("connection refused");
+      });
+
+    try {
+      const { status, body } = await callJsonRoute<{ mode: string; vantaGate: { source: string } }>(
+        escalateRoute.POST,
+        "http://localhost/api/disputes/disp_0008/escalate",
+        {},
+        { params: Promise.resolve({ id: "disp_0008" }) },
+      );
+      expect(status).toBe(200);
+      expect(body.mode).toBe("stubbed");
+      expect(body.vantaGate.source).toBe("unreachable");
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 });
 
