@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { createMockScraper, DEMO_APPROVED_IDS, DEMO_DENIED_IDS } from "@/lib/mock-scraper";
+import { DEMO_APPROVED_IDS, DEMO_DENIED_IDS } from "@/lib/mock-scraper";
+import { getScraper } from "@/lib/services";
+import { rateLimit, requireApiKey } from "@/lib/api-guard";
 import {
   getCandidate,
   listSubmittableClassifications,
@@ -13,8 +15,13 @@ export const dynamic = "force-dynamic";
 const DENIED_IDS = new Set<string>(DEMO_DENIED_IDS);
 const APPROVED_IDS = new Set<string>(DEMO_APPROVED_IDS);
 
-export async function POST() {
-  const scraper = createMockScraper({ latencyMs: 0 });
+export async function POST(request: Request) {
+  const rl = rateLimit(request, "submit-all", { limit: 3, windowMs: 60_000 });
+  if (rl) return rl;
+  const auth = requireApiKey(request);
+  if (auth) return auth;
+
+  const scraper = getScraper();
 
   const submittable = listSubmittableClassifications(MERIT_THRESHOLDS.AUTO_SUBMIT);
 

@@ -28,3 +28,19 @@ export const toolsLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "rate_limited", scope: "tools" },
 });
+
+/**
+ * Limiter for the unauthenticated GET endpoints that expose per-conversation
+ * call data (/calls/status/:candidateId, /calls/:id/audio, /calls/:id/
+ * live-transcript). These are deliberately un-auth'd so the dashboard can read
+ * them directly, but an attacker who learns a candidateId could otherwise
+ * enumerate transcripts or drive egress bandwidth via /audio. 120 req/min per
+ * IP covers a browser polling at 2s cadence (30 req/min) with ~4× headroom.
+ */
+export const callsReadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 120,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "rate_limited", scope: "calls/read" },
+});

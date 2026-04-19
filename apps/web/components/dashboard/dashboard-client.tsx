@@ -8,8 +8,6 @@ import {
   CircleDollarSign,
   Loader2,
   PhoneOutgoing,
-  Search,
-  Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -21,26 +19,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TopNav } from "@/components/top-nav";
-import { StatCard } from "@/components/stat-card";
 import { WarningsFeed } from "@/components/warnings/warnings-feed";
 import { FIXTURE_WARNINGS } from "@/lib/fixtures/warnings";
-import { DollarCounter } from "./dollar-counter";
-import { RecoveredToday } from "./recovered-today";
 import { CostBadge } from "./cost-badge";
 import { MeritBadge } from "./merit-badge";
 import { StatusBadge } from "./status-badge";
 import { PlatformPill, ChargeTypeLabel } from "./badges";
 import { DisputeDetailSheet } from "./dispute-detail-sheet";
-import { SpectrumStrip } from "./spectrum-strip";
-import { RecoveryGauge } from "./recovery-gauge";
-import { RecoveryAreaChart } from "./recovery-area-chart";
+import { HeroCommand } from "./hero-command";
 import {
-  CONTINGENCY_FEE_RATE,
-  DEMO_MERCHANT,
   type DashboardStats,
   type EnrichedDispute,
 } from "@/lib/types";
-import { formatCents, formatCentsPrecise, relativeTime } from "@/lib/utils";
+import { formatCentsPrecise, relativeTime } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -59,6 +50,7 @@ export function DashboardClient({ initialDisputes, initialStats }: Props) {
   const [isSubmittingAll, setIsSubmittingAll] = useState(false);
   const [escalatingId, setEscalatingId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [calledIds, setCalledIds] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<Filter>("all");
   const [, startTransition] = useTransition();
 
@@ -107,20 +99,22 @@ export function DashboardClient({ initialDisputes, initialStats }: Props) {
 
   const onEscalate = useCallback(
     async (id: string) => {
+      // Guard: only one call per dispute
+      if (calledIds.has(id)) return;
       setEscalatingId(id);
-      setActiveId(id);
       try {
         await fetch(`/api/disputes/${id}/escalate`, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ reason: "platform_denied" }),
         });
+        setCalledIds((prev) => new Set([...prev, id]));
         await refresh();
       } finally {
         setEscalatingId(null);
       }
     },
-    [refresh]
+    [refresh, calledIds]
   );
 
   const active = useMemo(
@@ -151,191 +145,78 @@ export function DashboardClient({ initialDisputes, initialStats }: Props) {
     (d) => d.classification?.shouldDispute && !d.submission
   ).length;
 
-  const realizedDollars = stats.totalRealizedCents / 100;
-  const inFlightDollars = stats.totalInFlightCents / 100;
-  const deniedDollars = stats.totalDeniedCents / 100;
-  const recoveryRate = stats.totalRealizedCents / Math.max(stats.totalSubmittedRecoverableCents, 1);
 
   return (
     <div className="min-h-screen">
       <TopNav />
 
-      <main className="mx-auto max-w-7xl px-6 py-10">
-        <div className="mb-8 flex flex-col gap-1">
-          <div className="text-xs font-medium uppercase tracking-wider text-foreground/60">
-            {DEMO_MERCHANT.name} · {DEMO_MERCHANT.city}
-          </div>
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-            Counter
-          </h1>
-          <p className="text-sm text-foreground/70">
-            We watch your delivery platforms, dispute every error charge, and recover the money for you.
-          </p>
-        </div>
+      <main className="mx-auto max-w-[1320px] px-7 py-4">
+        {/* HeroCommand — 3-column dense above-the-fold command center */}
+        <HeroCommand
+          stats={stats}
+          queueCount={queueCount}
+          deniedCount={denied.length}
+          isScanning={isScanning}
+          isSubmittingAll={isSubmittingAll}
+          onScan={onScan}
+          onSubmitAll={onSubmitAll}
+        />
 
-        {/* Hero dollar counter + stat cards */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="glass relative overflow-hidden rounded-2xl p-5 ring-1 ring-money/30 sm:col-span-2 lg:col-span-1">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Recoverable submitted
-            </div>
-            <div className="mt-3">
-              <DollarCounter cents={stats.totalSubmittedRecoverableCents} className="text-4xl text-money" />
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Across {stats.totalDisputed} of {stats.totalCharges} charges
-            </p>
-          </div>
-
-          <StatCard
-            label="Realized this period"
-            value={realizedDollars}
-            tone="money"
-            delta={8}
-            sublabel={`Counter fee (${(CONTINGENCY_FEE_RATE * 100).toFixed(0)}%) · ${formatCentsPrecise(stats.counterFeeCents)}`}
-          />
-          <StatCard
-            label="In flight"
-            value={inFlightDollars}
-            tone="muted"
-            delta={3}
-            sublabel={
-              queueCount > 0
-                ? `${queueCount} more ready to submit`
-                : "Awaiting platform decision"
-            }
-          />
-          <StatCard
-            label="Denied · needs voice"
-            value={deniedDollars}
-            tone="danger"
-            delta={-4}
-            sublabel={`${escalateCandidates.length} cases ready to escalate`}
-          />
-        </div>
-
-        <div className="mt-3">
-          <RecoveredToday />
-        </div>
-
-        {/* Charge breakdown spectrum strip */}
-        <div className="mt-3">
-          <SpectrumStrip />
-        </div>
-
-        {/* Recovery gauge + area chart */}
-        <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-5">
-          <div className="glass rounded-2xl p-5 lg:col-span-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Recovery rate
-                </div>
-                <div className="mt-0.5 text-sm text-foreground/80">Realized vs submitted</div>
-              </div>
-              <span className="rounded-full bg-money-soft px-2.5 py-1 text-[11px] font-semibold text-money-soft-foreground">
-                Live
-              </span>
-            </div>
-            <div className="mt-4">
-              <RecoveryGauge
-                value={recoveryRate}
-                label="recovered of submitted"
-                sublabel={`${formatCents(stats.totalRealizedCents)} of ${formatCents(stats.totalSubmittedRecoverableCents)}`}
-              />
-            </div>
-            <div className="mt-6 grid grid-cols-2 gap-3 text-xs">
-              <div className="glass-soft rounded-xl px-3 py-2">
-                <div className="text-muted-foreground">Auto-submitted</div>
-                <div className="mt-0.5 font-medium tabular-nums text-foreground">
-                  {stats.totalDisputed} / {stats.totalCharges}
-                </div>
-              </div>
-              <div className="glass-soft rounded-xl px-3 py-2">
-                <div className="text-muted-foreground">Avg cycle time</div>
-                <div className="mt-0.5 font-medium tabular-nums text-foreground">1.4 days</div>
-              </div>
-              <div className="glass-soft rounded-xl px-3 py-2">
-                <div className="text-muted-foreground">Voice success</div>
-                <div className="mt-0.5 font-medium tabular-nums text-money">62%</div>
-              </div>
-              <div className="glass-soft rounded-xl px-3 py-2">
-                <div className="text-muted-foreground">Platforms</div>
-                <div className="mt-0.5 font-medium tabular-nums text-foreground">3 connected</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="glass rounded-2xl p-5 lg:col-span-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Recovered, last 14 days
-                </div>
-                <div className="mt-0.5 font-display text-2xl font-semibold tabular-nums text-foreground text-glow-lime">
-                  {formatCents(stats.totalRealizedCents)}
-                </div>
-              </div>
-              <div className="flex gap-1 rounded-full bg-accent/60 p-1 text-[11px]">
-                {(["1D", "1W", "1M", "3M"] as const).map((p, i) => (
+        {/* Filter tab underline rail */}
+        {(() => {
+          const tabs: [Filter, string, number][] = [
+            ["all", "All", disputes.length],
+            ["queue", "Queue", queueCount],
+            ["submitted", "Submitted", stats.totalDisputed],
+            ["denied", "Denied", denied.length],
+            ["skipped", "Skipped", disputes.filter((d) => d.classification?.shouldDispute === false).length],
+          ];
+          return (
+            <div className="mt-8 flex items-end justify-between gap-3 border-b border-border">
+              <div className="flex gap-0">
+                {tabs.map(([k, l, n]) => (
                   <button
-                    key={p}
-                    className={cn(
-                      "rounded-full px-2.5 py-1 transition-colors",
-                      i === 1
-                        ? "bg-money text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
+                    key={k}
+                    onClick={() => setFilter(k)}
+                    className="relative px-[18px] py-3 pb-3.5 text-[13px]"
+                    style={{
+                      color: filter === k ? "var(--color-foreground)" : "var(--color-muted-foreground)",
+                      fontWeight: filter === k ? 500 : 400,
+                      background: "transparent",
+                      border: 0,
+                      cursor: "pointer",
+                    }}
                   >
-                    {p}
+                    {l}
+                    <span
+                      style={{
+                        color: filter === k ? "var(--color-muted-foreground)" : "oklch(1 0 0 / 0.2)",
+                        marginLeft: 6,
+                        fontSize: 12,
+                      }}
+                    >
+                      {n}
+                    </span>
+                    {filter === k && (
+                      <span
+                        className="absolute bottom-[-1px] left-[14px] right-[14px] h-[2px] rounded-full"
+                        style={{
+                          background: "linear-gradient(90deg, oklch(0.72 0.15 45) 0%, oklch(0.82 0.16 75) 100%)",
+                        }}
+                      />
+                    )}
                   </button>
                 ))}
               </div>
+              <div className="flex items-center gap-2.5 pb-3 text-[12px] text-muted-foreground">
+                <span style={{ fontFamily: '"Newsreader",Georgia,serif', fontStyle: "italic" }}>
+                  Sorted by
+                </span>
+                <span className="text-foreground text-[13px]">Recoverable, high → low</span>
+              </div>
             </div>
-            <div className="mt-3">
-              <RecoveryAreaChart />
-            </div>
-          </div>
-        </div>
-
-        {/* Filter pills + action buttons */}
-        <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-          <div className="glass flex flex-wrap gap-1 rounded-full p-1">
-            {(
-              [
-                ["all", `All · ${disputes.length}`],
-                ["queue", `Queue · ${queueCount}`],
-                ["submitted", `Submitted · ${stats.totalDisputed}`],
-                ["denied", `Denied · ${denied.length}`],
-                ["skipped", `Skipped · ${disputes.filter((d) => d.classification?.shouldDispute === false).length}`],
-              ] as const
-            ).map(([k, label]) => (
-              <button
-                key={k}
-                onClick={() => setFilter(k)}
-                className={cn(
-                  "rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors",
-                  filter === k
-                    ? "bg-money text-primary-foreground glow-lime"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onScan} disabled={isScanning || isSubmittingAll}>
-              {isScanning ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
-              {isScanning ? `Scanning… ${Math.round(scanProgress)}%` : "Scan portal"}
-            </Button>
-            <Button size="sm" onClick={onSubmitAll} disabled={isSubmittingAll || isScanning || queueCount === 0}>
-              {isSubmittingAll ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-              {isSubmittingAll ? "Submitting…" : "Submit all"}
-            </Button>
-          </div>
-        </div>
+          );
+        })()}
 
         {isScanning && (
           <div className="glass mt-4 h-1.5 overflow-hidden rounded-full p-0">
@@ -343,19 +224,38 @@ export function DashboardClient({ initialDisputes, initialStats }: Props) {
           </div>
         )}
 
-        {/* Disputes table */}
-        <div className="glass mt-6 overflow-hidden rounded-2xl">
+        {/* Disputes table — no card wrapper, hairline only */}
+        <div className="mt-3 overflow-hidden max-h-[30vh] overflow-y-auto" style={{ border: "1px solid oklch(1 0 0 / 0.07)", borderRadius: 16 }}>
           <Table>
             <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="pl-5">Order</TableHead>
-                <TableHead>Charge type</TableHead>
-                <TableHead>Items</TableHead>
-                <TableHead>Merit</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Charge</TableHead>
-                <TableHead className="text-right">Recoverable</TableHead>
-                <TableHead className="pr-5 text-right">Charged</TableHead>
+              <TableRow className="hover:bg-transparent" style={{ borderBottom: "1px solid oklch(1 0 0 / 0.07)" }}>
+                <TableHead
+                  className="pl-5"
+                  style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--color-muted-foreground)" }}
+                >
+                  Order
+                </TableHead>
+                <TableHead style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--color-muted-foreground)" }}>
+                  Charge type
+                </TableHead>
+                <TableHead style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--color-muted-foreground)" }}>
+                  Items
+                </TableHead>
+                <TableHead style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--color-muted-foreground)" }}>
+                  Merit
+                </TableHead>
+                <TableHead style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--color-muted-foreground)" }}>
+                  Status
+                </TableHead>
+                <TableHead className="text-right" style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--color-muted-foreground)" }}>
+                  Charge
+                </TableHead>
+                <TableHead className="text-right" style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--color-muted-foreground)" }}>
+                  Recoverable
+                </TableHead>
+                <TableHead className="pr-5 text-right" style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--color-muted-foreground)" }}>
+                  Charged
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -374,18 +274,24 @@ export function DashboardClient({ initialDisputes, initialStats }: Props) {
                       transition={{
                         delay: Math.min(idx * 0.012, 0.3),
                         duration: 0.25,
-                        ease: "easeOut",
+                        ease: [0.16, 1, 0.3, 1],
                       }}
                       onClick={() => setActiveId(d.id)}
                       className={cn(
-                        "animate-row-in cursor-pointer border-white/5 transition-colors hover:bg-black/[0.02]",
-                        isApproved && "bg-approved-bg/30",
-                        isDenied && "border-l-2 border-l-denied-border bg-denied-bg/30",
+                        "animate-row-in cursor-pointer transition-colors hover:bg-white/[0.02]",
                         d.classification?.shouldDispute === false && "opacity-50",
                       )}
-                      style={{ animationDelay: `${Math.min(idx * 12, 300)}ms` }}
+                      style={{
+                        borderBottom: "1px solid oklch(1 0 0 / 0.05)",
+                        borderLeft: isApproved
+                          ? "3px solid oklch(0.82 0.16 75 / 0.6)"
+                          : isDenied
+                          ? "3px solid oklch(0.68 0.18 28 / 0.7)"
+                          : "3px solid transparent",
+                        animationDelay: `${Math.min(idx * 12, 300)}ms`,
+                      }}
                     >
-                      <td className="p-3 pl-5 align-middle">
+                      <td className="p-3 pl-4 align-middle">
                         <div className="flex flex-col">
                           <span className="font-medium tabular-nums">#{d.orderId.replace("ord_", "")}</span>
                           <PlatformPill platform={d.platform} />
@@ -429,21 +335,16 @@ export function DashboardClient({ initialDisputes, initialStats }: Props) {
           )}
         </div>
 
-        {/* Pre-dispute early warnings */}
-        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
-          <div className="glass rounded-2xl p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Early warnings
-                </div>
-                <div className="text-sm text-foreground/80">
-                  Charges Counter is staging evidence for before they land.
-                </div>
+        {/* Pre-dispute early warnings & Voice escalation */}
+        <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <div className="glass rounded-xl p-4 max-h-[22vh] overflow-y-auto">
+            <div className="mb-2 flex items-center justify-between sticky top-0 bg-card z-10 pb-2 border-b border-border/20">
+              <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                Early warnings
               </div>
               <Link
                 href="/warnings"
-                className="text-xs font-semibold text-money hover:underline"
+                className="text-[10px] font-semibold text-money hover:underline"
               >
                 See all →
               </Link>
@@ -455,71 +356,60 @@ export function DashboardClient({ initialDisputes, initialStats }: Props) {
             />
           </div>
 
-          <div className="glass rounded-2xl p-5">
-            <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              Why pre-dispute matters
-            </div>
-            <p className="mt-2 text-sm text-foreground/80">
-              Filing within the auto-refund window converts ~3× better than
-              filing after. Counter listens for the trigger and stages evidence
-              before it lands.
-            </p>
-          </div>
-        </div>
-
-        {/* Voice escalation queue */}
-        {denied.length > 0 && (
-          <div className="glass mt-6 rounded-2xl p-5 ring-1 ring-denied-border/30">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <PhoneOutgoing className="size-4" /> Voice escalation queue
+          {denied.length > 0 ? (
+            <div className="glass rounded-xl p-4 ring-1 ring-denied-border/20 max-h-[22vh] overflow-y-auto">
+              <div className="flex items-start justify-between gap-4 sticky top-0 bg-card z-10 pb-2 border-b border-border/20 mb-2">
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-semibold">
+                    <PhoneOutgoing className="size-3" /> Voice escalation queue
+                  </div>
                 </div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {denied.length} denied dispute{denied.length === 1 ? "" : "s"} totaling{" "}
-                  <span className="font-medium text-foreground">
-                    {formatCents(stats.totalDeniedCents)}
-                  </span>{" "}
-                  are eligible for voice escalation.
-                </p>
-                {escalateCandidates.length > 0 && (
-                  <div className="mt-3 space-y-2">
-                    {escalateCandidates.map((d) => (
-                      <div key={d.id} className="flex items-center justify-between rounded-xl border border-denied-border/20 bg-card p-3">
-                        <div>
-                          <p className="text-sm font-medium">
-                            #{d.orderId.replace("ord_", "")} · {formatCentsPrecise(d.chargeAmountCents)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {d.itemsReported.map((i) => `${i.quantity}× ${i.name}`).join(", ")}
-                          </p>
-                        </div>
+                {escalateCandidates.length === 0 && (
+                  <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => denied[0] && setActiveId(denied[0].id)}>
+                    Review
+                  </Button>
+                )}
+              </div>
+              {escalateCandidates.length > 0 && (
+                <div className="space-y-1.5">
+                  {escalateCandidates.map((d) => (
+                    <div key={d.id} className="flex items-center justify-between rounded-lg border border-denied-border/10 bg-card/50 p-2">
+                      <div>
+                        <p className="text-[11px] font-medium">
+                          #{d.orderId.replace("ord_", "")} · {formatCentsPrecise(d.chargeAmountCents)}
+                        </p>
+                      </div>
+                      {calledIds.has(d.id) ? (
+                        <span className="text-[10px] text-muted-foreground px-2">Calling…</span>
+                      ) : (
                         <Button
                           size="sm"
+                          variant="secondary"
+                          className="h-6 text-[10px] px-2"
                           onClick={() => onEscalate(d.id)}
                           disabled={escalatingId === d.id}
                         >
                           {escalatingId === d.id ? (
-                            <Loader2 className="size-3.5 animate-spin" />
+                            <Loader2 className="size-3 animate-spin" />
                           ) : (
-                            <PhoneOutgoing className="size-3.5" />
+                            <PhoneOutgoing className="size-3" />
                           )}
-                          Call platform
+                          Call
                         </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {escalateCandidates.length === 0 && (
-                <Button onClick={() => denied[0] && setActiveId(denied[0].id)}>
-                  Review &amp; call
-                </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
-          </div>
-        )}
-        <footer className="mt-16 flex flex-col items-start justify-between gap-3 border-t border-border/40 pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center">
+          ) : (
+             <div className="glass rounded-xl p-4 flex items-center justify-center text-xs text-muted-foreground">
+               No pending escalations
+             </div>
+          )}
+        </div>
+
+        <footer className="mt-6 flex flex-col items-start justify-between gap-3 border-t border-border/40 pt-4 text-xs text-muted-foreground sm:flex-row sm:items-center">
           <div>
             Counter is API-proof — we drive the same browser the merchant does.{" "}
             <Link

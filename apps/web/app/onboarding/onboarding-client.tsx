@@ -156,18 +156,6 @@ export function OnboardingClient() {
   return (
     <div className="grid grid-cols-1 gap-8 md:grid-cols-[280px_1fr]">
       <aside className="space-y-3">
-        <div className="glass flex items-center gap-3 rounded-2xl p-4">
-          <Clock className="size-4 text-money" />
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-              Time to first dispute
-            </div>
-            <div className="font-mono text-2xl font-semibold tabular-nums">
-              {fmtElapsed(elapsedMs)}
-            </div>
-          </div>
-        </div>
-
         <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           Steps
         </div>

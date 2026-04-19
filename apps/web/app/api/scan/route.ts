@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createMockScraper } from "@/lib/mock-scraper";
-import { createMockClassifier } from "@/lib/mock-classifier";
+import { getScraper, getClassifier } from "@/lib/services";
 import { parseJson } from "@/lib/parse-request";
+import { rateLimit, requireApiKey } from "@/lib/api-guard";
 import {
   resetAllTables,
   upsertCandidate,
@@ -18,6 +18,11 @@ const ScanRequestSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const rl = rateLimit(request, "scan", { limit: 10, windowMs: 60_000 });
+  if (rl) return rl;
+  const auth = requireApiKey(request);
+  if (auth) return auth;
+
   const parsed = await parseJson(request, ScanRequestSchema);
   if (!parsed.ok) return parsed.response;
 
@@ -36,8 +41,8 @@ export async function POST(request: Request) {
     resetAllTables();
   }
 
-  const scraper = createMockScraper({ latencyMs: 800 });
-  const classifier = createMockClassifier({ latencyMs: 0 });
+  const scraper = getScraper();
+  const classifier = getClassifier();
 
   const candidates = await scraper.listOpenDisputes({
     merchantId: DEMO_MERCHANT.id,

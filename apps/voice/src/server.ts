@@ -39,6 +39,14 @@ export function createApp(): Express {
   app.use(express.static(path.join(__dirname, "..", "public")));
 
   app.get("/health", (_req, res) => {
+    // ngrokPublicUrl is useful for debugging in dev (lets an engineer curl
+    // /health and see which tunnel the agent is actually pointed at) but in
+    // production we omit it so an unauthenticated /health response can't be
+    // used to enumerate the tunnel / internal DNS we're exposing.
+    if (process.env.NODE_ENV === "production") {
+      res.json({ status: "ok" });
+      return;
+    }
     res.json({
       status: "ok",
       ngrokPublicUrl: config.ngrokPublicUrl || "NOT SET",

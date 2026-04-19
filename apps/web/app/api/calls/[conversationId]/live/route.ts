@@ -6,6 +6,8 @@
 const VOICE_URL =
   process.env["VOICE_SERVICE_URL"] ?? "http://localhost:4000";
 
+const CONVERSATION_ID_RE = /^[A-Za-z0-9_:.-]{1,128}$/;
+
 export const dynamic = "force-dynamic";
 
 export async function GET(
@@ -13,6 +15,14 @@ export async function GET(
   { params }: { params: Promise<{ conversationId: string }> }
 ) {
   const { conversationId } = await params;
+
+  if (!CONVERSATION_ID_RE.test(conversationId)) {
+    return new Response(
+      JSON.stringify({ error: "Invalid conversationId" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({

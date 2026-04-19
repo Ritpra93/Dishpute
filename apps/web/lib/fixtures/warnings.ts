@@ -17,7 +17,7 @@ export const FIXTURE_WARNINGS: EarlyWarning[] = [
       "Customer marked items missing. DoorDash will auto-refund $24.50 unless Counter files a counter-defense within 38 minutes.",
     expectedAt: ISO(38),
     potentialChargeCents: 2450,
-    artifactIds: ["disp_001"],
+    artifactIds: ["disp_0001"],
     createdAt: ISO(-5),
   },
   {
@@ -32,6 +32,7 @@ export const FIXTURE_WARNINGS: EarlyWarning[] = [
       "Driver has been idle near Hennepin Ave for 18 minutes. Cold-food charge is statistically likely (62% historical conversion).",
     expectedAt: ISO(15),
     potentialChargeCents: 3200,
+    artifactIds: ["disp_0017"],
     createdAt: ISO(-9),
   },
   {
@@ -46,6 +47,7 @@ export const FIXTURE_WARNINGS: EarlyWarning[] = [
       "Three customers in 4 hours flagged biryani missing. Counter staged evidence for the next two pending orders proactively.",
     expectedAt: ISO(120),
     potentialChargeCents: 1900,
+    artifactIds: ["disp_0011"],
     createdAt: ISO(-22),
   },
   {
@@ -60,6 +62,7 @@ export const FIXTURE_WARNINGS: EarlyWarning[] = [
       "Customer-entered address doesn't match Google Maps geocoding (off by 0.4 mi). Drivers historically mark this as not-delivered.",
     expectedAt: ISO(60),
     potentialChargeCents: 1850,
+    artifactIds: ["disp_0023"],
     createdAt: ISO(-35),
   },
   {
@@ -74,6 +77,7 @@ export const FIXTURE_WARNINGS: EarlyWarning[] = [
       "Two 1-star reviews referencing 'cold' and 'late'. Counter is monitoring the next 4 deliveries for related charges.",
     expectedAt: ISO(180),
     potentialChargeCents: 0,
+    artifactIds: ["disp_0008"],
     createdAt: ISO(-45),
   },
 ];

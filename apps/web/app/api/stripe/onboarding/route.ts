@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { z } from "zod";
 import { parseJson } from "@/lib/parse-request";
+import { rateLimit, requireApiKey } from "@/lib/api-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,14 @@ const OnboardingRequestSchema = z.object({
  */
 
 export async function POST(request: Request) {
+  const rl = rateLimit(request, "stripe-onboarding", {
+    limit: 5,
+    windowMs: 60_000,
+  });
+  if (rl) return rl;
+  const auth = requireApiKey(request);
+  if (auth) return auth;
+
   const parsed = await parseJson(request, OnboardingRequestSchema);
   if (!parsed.ok) return parsed.response;
 
@@ -41,6 +50,12 @@ export async function POST(request: Request) {
   }
 
   try {
+    // Keep this pinned apiVersion in lockstep with the apps/web/app/api/stripe/
+    // webhook/route.ts pin AND with the "API version" set on the Stripe
+    // Dashboard → Developers → Events endpoint. A mismatch causes webhook
+    // payloads to be delivered in a different shape than the SDK's generated
+    // types expect, which can manifest as silent field-missing bugs rather
+    // than a crash. Bump all three together.
     const stripe = new Stripe(secret, { apiVersion: "2025-02-24.acacia" });
     const account = await stripe.accounts.create({
       type: "express",

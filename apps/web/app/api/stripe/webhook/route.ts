@@ -40,6 +40,10 @@ export async function POST(request: Request) {
     );
   }
 
+  // MUST match the apiVersion in apps/web/app/api/stripe/onboarding/route.ts
+  // AND the "API version" configured on the Stripe Dashboard webhook
+  // endpoint. If the dashboard version drifts from the SDK version here the
+  // event payload shapes won't line up with constructEvent's typings.
   const stripe = new Stripe(apiKey, { apiVersion: "2025-02-24.acacia" });
 
   let event: Stripe.Event;

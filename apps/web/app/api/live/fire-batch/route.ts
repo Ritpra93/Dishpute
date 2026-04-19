@@ -5,10 +5,14 @@
  */
 
 import { NextResponse } from "next/server";
+import { rateLimit } from "@/lib/api-guard";
 
 export const dynamic = "force-dynamic";
 
-export async function POST() {
+export async function POST(request: Request) {
+  const rl = rateLimit(request, "fire-batch", { limit: 30, windowMs: 60_000 });
+  if (rl) return rl;
+
   return NextResponse.json({
     batchId: `batch_${Date.now()}`,
     runs: [
